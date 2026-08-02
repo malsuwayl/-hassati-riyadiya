@@ -1,0 +1,6 @@
+{
+  "name": "حصتي الرياضية",
+  "description": "تطبيق إدارة حصص التربية البدنية والرياضية للمعلمين والمعلمات - تحضير، تقارير، وتقييم السلوك والتميز",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
