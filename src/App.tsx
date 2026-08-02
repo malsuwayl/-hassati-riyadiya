@@ -8,6 +8,7 @@ import { StudentsView } from './components/StudentsView';
 import { AttendanceView } from './components/AttendanceView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
+import { PhysicalMeasurementsView } from './components/PhysicalMeasurementsView';
 import { OnboardingModal } from './components/OnboardingModal';
 import { FloatingActionButton } from './components/FloatingActionButton';
 
@@ -23,6 +24,7 @@ const MainContent: React.FC = () => {
       <main className="max-w-md mx-auto px-3 pt-4">
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'attendance' && <AttendanceView />}
+        {activeTab === 'measurements' && <PhysicalMeasurementsView />}
         {activeTab === 'classes' && <ClassesView />}
         {activeTab === 'students' && <StudentsView />}
         {activeTab === 'reports' && <ReportsView />}

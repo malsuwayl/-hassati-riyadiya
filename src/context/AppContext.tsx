@@ -7,6 +7,7 @@ import {
   AttendanceStatus,
   EvaluationType,
   ActiveTab,
+  PhysicalMeasurement,
 } from '../types';
 import {
   DEFAULT_POINTS_CONFIG,
@@ -61,9 +62,14 @@ interface AppContextType {
 
   // Attendance & Evaluation actions
   setStudentAttendance: (studentId: string, classId: string, date: string, attendance: AttendanceStatus) => void;
+  toggleSportsUniform: (studentId: string, classId: string, date: string) => void;
   incrementEvaluation: (studentId: string, classId: string, date: string, type: EvaluationType, delta: number) => void;
   addStudentNote: (studentId: string, classId: string, date: string, note: string) => void;
   markAllPresent: (classId: string, date: string) => void;
+
+  // Physical Measurements
+  measurements: Record<string, PhysicalMeasurement>;
+  updateStudentMeasurement: (studentId: string, data: Partial<PhysicalMeasurement>) => void;
 
   // Settings & Backup actions
   updateSettings: (newSettings: Partial<SettingsPointsConfig>) => void;
@@ -161,6 +167,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  const [measurements, setMeasurements] = useState<Record<string, PhysicalMeasurement>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.MEASUREMENTS);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
   // Save changes to IndexedDB and localStorage
   useEffect(() => {
     saveIDBItem(STORAGE_KEYS.CLASSES, classes);
@@ -178,21 +193,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveIDBItem(STORAGE_KEYS.SETTINGS, settings);
   }, [settings]);
 
+  useEffect(() => {
+    saveIDBItem(STORAGE_KEYS.MEASUREMENTS, measurements);
+  }, [measurements]);
+
   // Async hydration from IndexedDB on startup
   useEffect(() => {
     let isMounted = true;
     async function hydrateIDB() {
-      const [idbClasses, idbStudents, idbLogs, idbSettings] = await Promise.all([
+      const [idbClasses, idbStudents, idbLogs, idbSettings, idbMeasurements] = await Promise.all([
         loadIDBItem<ClassItem[]>(STORAGE_KEYS.CLASSES, classes),
         loadIDBItem<Student[]>(STORAGE_KEYS.STUDENTS, students),
         loadIDBItem<DailyLogRecord[]>(STORAGE_KEYS.LOGS, dailyLogs),
         loadIDBItem<SettingsPointsConfig>(STORAGE_KEYS.SETTINGS, settings),
+        loadIDBItem<Record<string, PhysicalMeasurement>>(STORAGE_KEYS.MEASUREMENTS, measurements),
       ]);
       if (isMounted) {
         if (idbClasses && idbClasses.length > 0) setClasses(idbClasses);
         if (idbStudents && idbStudents.length > 0) setStudents(idbStudents);
         if (idbLogs && idbLogs.length > 0) setDailyLogs(idbLogs);
         if (idbSettings) setSettings(idbSettings);
+        if (idbMeasurements && Object.keys(idbMeasurements).length > 0) setMeasurements(idbMeasurements);
       }
     }
     hydrateIDB();
@@ -244,11 +265,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     students: Student[];
     dailyLogs?: DailyLogRecord[];
     settings: SettingsPointsConfig;
+    measurements?: Record<string, PhysicalMeasurement>;
   }) => {
     if (data.classes) setClasses(data.classes);
     if (data.students) setStudents(data.students);
     if (data.dailyLogs) setDailyLogs(data.dailyLogs);
     if (data.settings) setSettings(data.settings);
+    if (data.measurements) setMeasurements(data.measurements);
     showToast('تمت استعادة جميع البيانات من النسخة الاحتياطية بنجاح 📁', 'success');
   };
 
@@ -364,6 +387,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       return [...prev, newRecord];
     });
+  };
+
+  const toggleSportsUniform = (studentId: string, classId: string, date: string) => {
+    setDailyLogs((prev) => {
+      const existingIndex = prev.findIndex((l) => l.studentId === studentId && l.date === date);
+      if (existingIndex >= 0) {
+        const copy = [...prev];
+        const current = copy[existingIndex];
+        const currentStatus = current.sportsUniform !== false; // default to true if undefined
+        copy[existingIndex] = {
+          ...current,
+          sportsUniform: !currentStatus,
+          updatedAt: new Date().toISOString(),
+        };
+        return copy;
+      } else {
+        const record = getOrCreateLog(prev, studentId, classId, date);
+        record.sportsUniform = false; // toggle off from default true
+        return [...prev, record];
+      }
+    });
+  };
+
+  const updateStudentMeasurement = (studentId: string, data: Partial<PhysicalMeasurement>) => {
+    setMeasurements((prev) => {
+      const current = prev[studentId] || { studentId };
+      const updated = {
+        ...current,
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      if (updated.weight !== undefined && updated.height !== undefined && updated.height > 0) {
+        const hM = updated.height / 100;
+        updated.bmi = parseFloat((updated.weight / (hM * hM)).toFixed(1));
+      }
+      return {
+        ...prev,
+        [studentId]: updated,
+      };
+    });
+    showToast('تم حفظ القياسات البدنية بنجاح 📏', 'success');
   };
 
   // Evaluation Increment (Participation, Excellence, Violation, Warning)
@@ -621,9 +685,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         assignStudentToClass,
         batchAddStudents,
         setStudentAttendance,
+        toggleSportsUniform,
         incrementEvaluation,
         addStudentNote,
         markAllPresent,
+        measurements,
+        updateStudentMeasurement,
         updateSettings,
         resetAllData,
         importAllData,

@@ -6,6 +6,7 @@ export const IDB_KEYS = {
   STUDENTS: 'hosati_pe_students_v1',
   LOGS: 'hosati_pe_logs_v1',
   SETTINGS: 'hosati_pe_settings_v1',
+  MEASUREMENTS: 'hosati_pe_measurements_v1',
 };
 
 // Save data asynchronously to IndexedDB + synchronous localStorage backup

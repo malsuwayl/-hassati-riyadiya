@@ -12,6 +12,7 @@ import {
   Zap,
   CheckCircle2,
   ChevronLeft,
+  Activity,
 } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {
@@ -176,31 +177,38 @@ export const DashboardView: React.FC = () => {
           <Zap className="w-3.5 h-3.5 text-amber-500" />
           <span>الإجراءات السريعة</span>
         </h3>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => setActiveTab('attendance')}
-            className="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-2xl shadow-sm transition-all active:scale-95 text-right"
+            className="flex flex-col items-center text-center bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-2xl shadow-sm transition-all active:scale-95"
           >
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <CalendarCheck className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center mb-1">
+              <CalendarCheck className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <span className="text-xs font-bold block">ابدأ التحضير</span>
-              <span className="text-[10px] text-emerald-100 font-medium">تسجيل الحضور والتقييم</span>
+            <span className="text-xs font-bold block leading-tight">التحضير اليومي</span>
+            <span className="text-[9px] text-emerald-100 font-medium">تسجيل الحضور</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('measurements')}
+            className="flex flex-col items-center text-center bg-teal-600 hover:bg-teal-700 text-white p-2.5 rounded-2xl shadow-sm transition-all active:scale-95"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center mb-1">
+              <Activity className="w-4 h-4 text-white" />
             </div>
+            <span className="text-xs font-bold block leading-tight">القياسات البدنية</span>
+            <span className="text-[9px] text-teal-100 font-medium">BMI واللياقة</span>
           </button>
 
           <button
             onClick={() => setActiveTab('students')}
-            className="flex items-center gap-2.5 bg-white border border-emerald-200 hover:bg-emerald-50 text-zinc-800 p-3 rounded-2xl shadow-sm transition-all active:scale-95 text-right"
+            className="flex flex-col items-center text-center bg-white border border-emerald-200 hover:bg-emerald-50 text-zinc-800 p-2.5 rounded-2xl shadow-sm transition-all active:scale-95"
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-              <PlusCircle className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1">
+              <PlusCircle className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-xs font-bold block">إضافة طالب جديد</span>
-              <span className="text-[10px] text-zinc-500 font-medium">تسجيل في الأكاديمية</span>
-            </div>
+            <span className="text-xs font-bold block leading-tight">إضافة طالب</span>
+            <span className="text-[9px] text-zinc-500 font-medium font-medium">تسجيل طالب</span>
           </button>
         </div>
       </div>
