@@ -1,28 +1,24 @@
 export type AttendanceStatus = 'present' | 'absent' | 'late' | null;
 
-export type EvaluationType = 'participation' | 'excellence' | 'violation' | 'warning';
+export interface AttendanceCheckItem {
+  id: string;
+  name: string;
+}
 
 export interface ClassItem {
   id: string;
-  name: string; // e.g., "أول ثانوي - شعبة 1"
-  grade: string; // e.g., "الأول الثانوي"
-  section: string; // e.g., "1"
-  period: string; // e.g., "الحصة الثانية"
-  day: string; // e.g., "الأحد"
-  notes?: string;
-  studentCount?: number;
+  name: string; // e.g. "الصف الأول الثانوي - 1"
 }
 
 export interface Student {
   id: string;
   name: string;
   classId: string;
-  studentNumber?: string;
-  nationalId?: string; // رقم الهوية الوطنية / الإقامة
-  medicalNotes?: string; // ملاحظات صحية (مثل: ربو، إصابة ركبة...)
+  nationalId?: string;
+  medicalNotes?: string; // e.g., "ربو خفيف", "إصابة ركبة", "عذر طبي مؤقت"
   phone?: string;
+  teacherNotes?: string;
   notes?: string;
-  avatarColor?: string;
 }
 
 export interface DailyLogRecord {
@@ -31,51 +27,84 @@ export interface DailyLogRecord {
   classId: string;
   date: string; // YYYY-MM-DD
   attendance: AttendanceStatus;
-  participations: number;
-  excellences: number;
-  violations: number;
-  warnings: number;
-  sportsUniform?: boolean; // true = ملتزم بالزي الرياضي, false = غير ملتزم
+  uniform?: boolean; // true = wearing sports uniform ✅, false = not wearing ❌
+  customChecks?: Record<string, boolean>; // itemId -> boolean
   notes?: string;
-  updatedAt: string;
-}
-
-export interface PhysicalMeasurement {
-  studentId: string;
-  height?: number; // cm (الطول سم)
-  weight?: number; // kg (الوزن كجم)
-  bmi?: number; // (مؤشر كتلة الجسم - يحسب تلقائياً)
-  sprint50m?: number; // seconds (جري 50م - ثواني)
-  run600m?: string; // string (جري 600م - دقائق/ثواني)
-  standingLongJump?: number; // cm (الوثب الطويل من الثبات - سم)
-  sitUps?: number; // count (ثني الجذع من الجلوس / البطن)
-  pushUps?: number; // count (الضغط بالذراعين)
-  flexibility?: number; // cm (المرونة - مد الذراعين للأمام)
-  agility?: number; // seconds/score (الرشاقة)
-  balance?: number; // seconds/score (التوازن)
-  notes?: string; // ملاحظات
   updatedAt?: string;
 }
 
-export interface SettingsPointsConfig {
-  attendance: number;
-  late: number;
-  absent: number;
-  participation: number;
-  excellence: number;
-  violation: number;
-  warning: number;
+export type IncentiveType = 'positive' | 'negative';
+
+export interface IncentiveRecord {
+  id: string;
+  studentId: string;
+  date: string; // YYYY-MM-DD
+  type: IncentiveType;
+  points: number; // positive (e.g. 1, 2) or negative (e.g. -1, -2)
+  title: string; // e.g. "مشاركة متميزة", "روح رياضية", "مخالفة سلوكية"
+  notes?: string;
+  createdAt: string;
+}
+
+export interface TimetableEntry {
+  id: string;
+  dayOfWeek: number; // 0: الأحد, 1: الإثنين, 2: الثلاثاء, 3: الأربعاء, 4: الخميس
+  periodNumber: number; // 1, 2, 3, 4, 5, 6, 7...
+  classId: string;
+}
+
+export interface AssessmentItem {
+  id: string;
+  name: string; // e.g. "المشاركة والحضور", "الاختبار المهاري"
+  maxScore: number;
+  weight?: number;
+  order?: number;
+}
+
+export type MeasurementInputType = 'number' | 'time' | 'yesno' | 'text';
+
+export type MeasurementUnit =
+  | 'cm'
+  | 'kg'
+  | 'bmi'
+  | 'seconds'
+  | 'mm:ss'
+  | 'meters'
+  | 'count'
+  | 'degrees'
+  | '%'
+  | 'none';
+
+export interface GradingRange {
+  id: string;
+  minVal: number;
+  maxVal: number;
+  score: number;
+  levelName: 'ممتاز' | 'جيد جداً' | 'جيد' | 'مقبول' | 'ضعيف';
+}
+
+export interface MeasurementItem {
+  id: string;
+  name: string; // e.g., "جري 50م", "جري 600م", "الطول", "الوزن", "BMI", "الضغط", "المرونة"
+  inputType: MeasurementInputType;
+  unit: MeasurementUnit;
+  maxGrade: number; // e.g., 10
+  betterDirection: 'higher' | 'lower'; // higher is better (e.g. pushups) or lower is better (e.g. 50m)
+  gradingRanges?: GradingRange[];
+}
+
+export interface TeacherSettings {
   schoolName: string;
   teacherName: string;
   schoolLogo?: string;
-  theme?: 'light' | 'dark';
 }
 
 export type ActiveTab =
-  | 'dashboard'
-  | 'classes'
-  | 'students'
+  | 'home'
   | 'attendance'
+  | 'grades'
   | 'measurements'
-  | 'reports'
+  | 'incentives'
+  | 'statistics'
+  | 'students'
   | 'settings';

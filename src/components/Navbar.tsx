@@ -2,56 +2,82 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { ActiveTab } from '../types';
 import {
-  LayoutDashboard,
+  Home,
   CheckCheck,
-  GraduationCap,
-  Users,
-  BarChart3,
-  Settings,
-  Trophy,
+  Award,
   Activity,
+  BarChart2,
+  Users,
+  Settings,
+  Sparkles,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { settings, dailyLogs, selectedDate } = useApp();
-
-  // Quick stat: count how many attended today
-  const todayLogs = dailyLogs.filter((l) => l.date === selectedDate);
-  const presentCount = todayLogs.filter((l) => l.attendance === 'present').length;
+  const { settings, selectedDate, activeTab, setActiveTab } = useApp();
 
   const formattedDate = new Date(selectedDate).toLocaleDateString('ar-SA', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
   });
 
   return (
-    <header className="sticky top-0 z-30 bg-emerald-700 text-white shadow-lg pt-safe">
-      <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center text-xl shadow-inner">
-            ⚽
+    <header className="sticky top-0 z-30 bg-white/95 border-b border-zinc-200 px-4 py-2 font-sans">
+      <div className="max-w-xl mx-auto flex items-center justify-between">
+        <div
+          onClick={() => setActiveTab('home')}
+          className="flex items-center gap-2 cursor-pointer select-none active:opacity-70 transition-opacity"
+        >
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-xs">
+            بدنية
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight leading-none text-white flex items-center gap-1.5">
-              حصتي الرياضية
-              <span className="inline-block text-[10px] bg-emerald-500/80 px-1.5 py-0.5 rounded-full font-medium text-emerald-950">
-                PWA
-              </span>
+            <h1 className="text-xs font-black text-zinc-900 leading-tight">
+              {settings.schoolName || 'المدرسة'}
             </h1>
-            <p className="text-xs text-emerald-100 font-medium mt-0.5 truncate max-w-[190px]">
-              {settings.schoolName || 'مدرسة التربية البدنية'}
-            </p>
+            <p className="text-[10px] font-bold text-zinc-500">{settings.teacherName || 'معلم التربية البدنية'}</p>
           </div>
         </div>
 
-        <div className="flex flex-col items-end">
-          <div className="flex items-center gap-1 bg-emerald-800/80 px-2.5 py-1 rounded-xl border border-emerald-500/30 text-xs font-semibold">
-            <Trophy className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-            <span className="text-emerald-100">{presentCount} محضر</span>
-          </div>
-          <span className="text-[10px] text-emerald-200 mt-1 font-medium">{formattedDate}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full">
+            {formattedDate}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('incentives')}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+              activeTab === 'incentives'
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+            }`}
+            title="بنك التحفيز والمخالفات"
+          >
+            <Sparkles className="w-4 h-4 text-amber-600" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('students')}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+              activeTab === 'students'
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+            }`}
+            title="إدارة الفصول والطلاب"
+          >
+            <Users className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('settings')}
+            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-colors cursor-pointer"
+            title="الإعدادات"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>
@@ -59,72 +85,69 @@ export const Header: React.FC = () => {
 };
 
 export const BottomNav: React.FC = () => {
-  const { activeTab, setActiveTab } = useApp();
+  const { activeTab, setActiveTab, triggerHaptic } = useApp();
 
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
     {
-      id: 'dashboard',
+      id: 'home',
       label: 'الرئيسية',
-      icon: <LayoutDashboard className="w-5 h-5" />,
+      icon: <Home className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
     {
       id: 'attendance',
       label: 'التحضير',
-      icon: <CheckCheck className="w-5 h-5" />,
+      icon: <CheckCheck className="w-4 h-4 sm:w-5 sm:h-5" />,
+    },
+    {
+      id: 'grades',
+      label: 'الدرجات',
+      icon: <Award className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
     {
       id: 'measurements',
       label: 'القياسات',
-      icon: <Activity className="w-5 h-5" />,
+      icon: <Activity className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
     {
-      id: 'classes',
-      label: 'الفصول',
-      icon: <GraduationCap className="w-5 h-5" />,
+      id: 'incentives',
+      label: 'التحفيز',
+      icon: <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />,
     },
     {
       id: 'students',
       label: 'الطلاب',
-      icon: <Users className="w-5 h-5" />,
+      icon: <Users className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
     {
-      id: 'reports',
-      label: 'التقارير',
-      icon: <BarChart3 className="w-5 h-5" />,
-    },
-    {
-      id: 'settings',
-      label: 'الإعدادات',
-      icon: <Settings className="w-5 h-5" />,
+      id: 'statistics',
+      label: 'الإحصائيات',
+      icon: <BarChart2 className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-emerald-100 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
-      <div className="max-w-lg mx-auto px-1 py-1.5 flex items-center justify-between overflow-x-auto no-scrollbar">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-zinc-200 pb-safe font-sans">
+      <div className="max-w-xl mx-auto grid grid-cols-7 px-1 py-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-2xl transition-all duration-200 min-w-[46px] shrink-0 relative ${
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                setActiveTab(item.id);
+              }}
+              className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-colors cursor-pointer ${
                 isActive
-                  ? 'text-emerald-700 font-bold scale-105'
-                  : 'text-zinc-500 hover:text-zinc-800 font-medium'
+                  ? 'text-emerald-700 font-black bg-emerald-50'
+                  : 'text-zinc-500 hover:text-zinc-800 font-bold'
               }`}
             >
-              <div
-                className={`p-1.5 rounded-xl transition-colors ${
-                  isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-transparent'
-                }`}
-              >
-                {item.icon}
-              </div>
-              <span className="text-[10px] mt-0.5 leading-none whitespace-nowrap">{item.label}</span>
-              {isActive && (
-                <span className="absolute -top-1 w-1.5 h-1.5 bg-emerald-600 rounded-full" />
-              )}
+              {item.icon}
+              <span className="text-[9px] sm:text-[10px] mt-0.5 leading-tight truncate max-w-full">
+                {item.label}
+              </span>
             </button>
           );
         })}
@@ -132,3 +155,4 @@ export const BottomNav: React.FC = () => {
     </nav>
   );
 };
+

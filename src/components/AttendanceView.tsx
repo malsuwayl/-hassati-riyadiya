@@ -1,19 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Student } from '../types';
-import {
-  CheckCheck,
-  Calendar,
-  GraduationCap,
-  Users,
-  Search,
-  Check,
-  Shirt,
-  Star,
-  Trophy,
-  AlertTriangle,
-  MessageSquare,
-} from 'lucide-react';
+import { AttendanceStatus } from '../types';
+import { Search, CheckCheck, RotateCcw, Plus, Trash2, ListChecks, FileText } from 'lucide-react';
+import { generateAttendancePDFReport } from '../utils/pdfExport';
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -23,432 +12,370 @@ export const AttendanceView: React.FC = () => {
     setSelectedClassId,
     selectedDate,
     setSelectedDate,
-    getStudentRecordForDate,
+    attendanceCheckItems,
+    addAttendanceCheckItem,
+    deleteAttendanceCheckItem,
+    toggleStudentCheckItem,
     setStudentAttendance,
-    toggleSportsUniform,
-    incrementEvaluation,
-    addStudentNote,
     markAllPresent,
+    clearAttendance,
+    getStudentRecordForDate,
+    dailyLogs,
+    settings,
+    showToast,
     triggerHaptic,
+    setSelectedStudentId,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeNoteStudentId, setActiveNoteStudentId] = useState<string | null>(null);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const currentClass = classes.find((c) => c.id === selectedClassId) || classes[0];
-  const classStudents = students.filter((s) => s.classId === selectedClassId);
+  const activeClass = classes.find((c) => c.id === selectedClassId) || classes[0];
 
-  const filteredClassStudents = classStudents.filter(
-    (s) => s.name.includes(searchQuery) || (s.studentNumber && s.studentNumber.includes(searchQuery))
-  );
+  const handleExportAttendancePDF = async () => {
+    if (!activeClass) return;
+    setIsExportingPDF(true);
+    showToast('جاري إنشاء تقرير الحضور والزي PDF...', 'info');
+    try {
+      const classSts = students.filter((s) => s.classId === activeClass.id);
+      await generateAttendancePDFReport(
+        activeClass,
+        classSts,
+        dailyLogs,
+        attendanceCheckItems,
+        settings
+      );
+      showToast('تم تحميل تقرير الحضور والزي PDF بنجاح 📄', 'success');
+    } catch (err) {
+      showToast('حدث خطأ أثناء إنشاء الملف', 'error');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
-  // Top summary metrics
-  const presentTodayCount = classStudents.filter((s) => {
-    const rec = getStudentRecordForDate(s.id, selectedDate);
-    return rec && rec.attendance === 'present';
-  }).length;
+  const classStudents = students
+    .filter((s) => s.classId === selectedClassId)
+    .filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase().trim()));
 
-  const absentTodayCount = classStudents.filter((s) => {
-    const rec = getStudentRecordForDate(s.id, selectedDate);
-    return rec && rec.attendance === 'absent';
-  }).length;
+  const totalClassStudents = students.filter((s) => s.classId === selectedClassId).length;
+  let presentCount = 0;
+  let absentCount = 0;
+  let lateCount = 0;
 
-  const lateTodayCount = classStudents.filter((s) => {
-    const rec = getStudentRecordForDate(s.id, selectedDate);
-    return rec && rec.attendance === 'late';
-  }).length;
+  students
+    .filter((s) => s.classId === selectedClassId)
+    .forEach((st) => {
+      const rec = getStudentRecordForDate(st.id, selectedDate);
+      if (rec) {
+        if (rec.attendance === 'present') presentCount++;
+        else if (rec.attendance === 'absent') absentCount++;
+        else if (rec.attendance === 'late') lateCount++;
+      }
+    });
 
-  const uniformCompliantCount = classStudents.filter((s) => {
-    const rec = getStudentRecordForDate(s.id, selectedDate);
-    return rec ? rec.sportsUniform !== false : true;
-  }).length;
+  const setStatus = (studentId: string, status: AttendanceStatus) => {
+    triggerHaptic(20);
+    setStudentAttendance(studentId, selectedClassId, selectedDate, status);
+  };
 
-  const handleMarkAllPresent = () => {
-    triggerHaptic(50);
-    markAllPresent(selectedClassId, selectedDate);
+  const handleAddNewItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemName.trim()) return;
+    triggerHaptic(30);
+    addAttendanceCheckItem(newItemName.trim());
+    setNewItemName('');
+  };
+
+  const handleDeleteItem = (id: string) => {
+    triggerHaptic(30);
+    deleteAttendanceCheckItem(id);
   };
 
   return (
-    <div className="space-y-4 pb-28 animate-in fade-in duration-200 max-w-xl mx-auto">
-      {/* Header Card */}
-      <div className="bg-white p-4 rounded-3xl border border-emerald-100 shadow-sm space-y-3">
-        {/* Title & Date Selector */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-              <CheckCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-extrabold text-zinc-900">التحضير اليومي ⚽</h2>
-              <p className="text-xs text-zinc-500">جدول مدمج - حفظ وإحصائيات فورية</p>
-            </div>
+    <div className="max-w-2xl mx-auto px-3 py-3 font-sans space-y-3">
+      {/* Top Controls Bar */}
+      <div className="bg-white rounded-xl p-3 border border-zinc-200 text-right space-y-2.5">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] font-black text-zinc-500 block mb-1">الفصل</label>
+            <select
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 font-extrabold text-xs rounded-lg px-2.5 py-2 outline-none"
+            >
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-2xl">
-            <Calendar className="w-4 h-4 text-emerald-600" />
+          <div>
+            <label className="text-[10px] font-black text-zinc-500 block mb-1">التاريخ</label>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-transparent text-emerald-950 font-bold text-xs outline-none cursor-pointer"
+              className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 font-extrabold text-xs rounded-lg px-2.5 py-1.5 outline-none"
             />
           </div>
         </div>
 
-        {/* Class Selector Tabs */}
-        {classes.length === 0 ? (
-          <div className="p-3 bg-amber-50 rounded-2xl text-amber-800 text-xs font-bold text-center">
-            لا توجد فصول مضافة حتى الآن. يرجى إضافة فصل جديد للبدء.
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            {classes.map((cls) => {
-              const isSelected = cls.id === selectedClassId;
-              const count = students.filter((s) => s.classId === cls.id).length;
-              return (
-                <button
-                  key={cls.id}
-                  onClick={() => {
-                    triggerHaptic(30);
-                    setSelectedClassId(cls.id);
-                  }}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border min-h-[44px] ${
-                    isSelected
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                      : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border-zinc-200'
-                  }`}
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  <span>{cls.name}</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-zinc-200 text-zinc-700'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Large Green Button: ✅ تحضير الجميع */}
-        <button
-          onClick={handleMarkAllPresent}
-          disabled={classStudents.length === 0}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-base py-3 px-4 rounded-2xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 border border-emerald-500 min-h-[48px]"
-        >
-          <span className="text-lg">✅</span>
-          <span>تحضير جميع طلاب الفصل</span>
-        </button>
-
-        {/* Top Summary Bar: 🟢 Present | 🔴 Absent | 🟡 Late | 👕 Sports Uniform */}
-        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-zinc-100">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-2 text-center">
-            <div className="text-sm">🟢</div>
-            <div className="text-base font-black text-emerald-950">{presentTodayCount}</div>
-            <div className="text-[10px] font-extrabold text-emerald-800">حاضر</div>
-          </div>
-
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-2 text-center">
-            <div className="text-sm">🔴</div>
-            <div className="text-base font-black text-red-950">{absentTodayCount}</div>
-            <div className="text-[10px] font-extrabold text-red-800">غائب</div>
-          </div>
-
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-2 text-center">
-            <div className="text-sm">🟡</div>
-            <div className="text-base font-black text-amber-950">{lateTodayCount}</div>
-            <div className="text-[10px] font-extrabold text-amber-800">متأخر</div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-2 text-center">
-            <div className="text-sm">👕</div>
-            <div className="text-base font-black text-blue-950">{uniformCompliantCount}</div>
-            <div className="text-[10px] font-extrabold text-blue-800">ملتزم بالزي</div>
-          </div>
-        </div>
-
-        {/* Search input */}
-        {classStudents.length > 3 && (
-          <div className="relative pt-1">
-            <Search className="w-4 h-4 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        {/* Quick actions & Search */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <div className="relative flex-1 min-w-[140px]">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-2.5" />
             <input
               type="text"
-              placeholder="ابحث عن اسم الطالب..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl pr-9 pl-3 py-2 text-xs font-semibold outline-none focus:border-emerald-500"
+              placeholder="بحث..."
+              className="w-full pl-2 pr-8 py-1.5 bg-zinc-50 border border-zinc-200 text-xs font-bold rounded-lg outline-none"
             />
           </div>
-        )}
-      </div>
 
-      {/* Compact Responsive Attendance Table */}
-      <div className="bg-white rounded-3xl border border-zinc-200 p-3 shadow-sm space-y-2">
-        <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
-          <h3 className="text-xs font-extrabold text-zinc-800 flex items-center gap-1.5">
-            <Users className="w-4 h-4 text-emerald-600" />
-            <span>جدول التحضير ({filteredClassStudents.length} طالب)</span>
-          </h3>
-          <span className="text-[10px] text-zinc-400 font-bold">حفظ مباشر دون فتح بطاقات</span>
+          <button
+            type="button"
+            onClick={handleExportAttendancePDF}
+            disabled={isExportingPDF}
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-50"
+            title="تصدير كشف التحضير والزي كملف PDF"
+          >
+            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{isExportingPDF ? 'جاري...' : 'تصدير PDF 📄'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowManageModal(true)}
+            className="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            title="إدارة بنود التحضير والزي والمتابعة"
+          >
+            <ListChecks className="w-3.5 h-3.5 text-emerald-600" />
+            <span>بنود التحضير ({attendanceCheckItems.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => markAllPresent(selectedClassId, selectedDate)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+          >
+            <CheckCheck className="w-3.5 h-3.5" />
+            <span>حاضر للكل</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => clearAttendance(selectedClassId, selectedDate)}
+            className="bg-zinc-100 hover:bg-zinc-200 text-zinc-600 px-2 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+            title="إعادة ضبط"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {filteredClassStudents.length === 0 ? (
-          <div className="py-8 text-center border border-dashed border-zinc-200 rounded-2xl">
-            <Users className="w-8 h-8 text-zinc-300 mx-auto mb-1" />
-            <p className="text-xs font-bold text-zinc-600">لا يوجد طلاب في هذا الفصل</p>
+        {/* Stats bar */}
+        <div className="flex items-center justify-between text-[11px] font-black pt-1 border-t border-zinc-100">
+          <span className="text-zinc-500">العدد: {totalClassStudents}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-emerald-700">حاضر: {presentCount}</span>
+            <span className="text-amber-600">متأخر: {lateCount}</span>
+            <span className="text-rose-600">غائب: {absentCount}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Student Rows List */}
+      <div className="bg-white rounded-xl border border-zinc-200 divide-y divide-zinc-100 overflow-hidden">
+        {classStudents.length === 0 ? (
+          <div className="p-6 text-center text-zinc-400 font-bold text-xs">
+            لا يوجد طلاب في هذا الفصل
           </div>
         ) : (
-          <div className="overflow-x-auto no-scrollbar rounded-2xl border border-zinc-100">
-            <table className="w-full text-right text-xs border-collapse min-w-[650px]">
-              <thead>
-                <tr className="bg-zinc-50 text-zinc-700 font-extrabold border-b border-zinc-200">
-                  <th className="py-3 px-2 text-center w-10">الرقم</th>
-                  <th className="py-3 px-3 min-w-[150px]">اسم الطالب</th>
-                  <th className="py-3 px-2 text-center min-w-[140px]">التحضير (حاضر / غائب)</th>
-                  <th className="py-3 px-2 text-center min-w-[85px]">متأخر</th>
-                  <th className="py-3 px-2 text-center min-w-[95px]">الزي الرياضي</th>
-                  <th className="py-3 px-2 min-w-[160px]">ملاحظات والتقييم</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 font-semibold text-zinc-800">
-                {filteredClassStudents.map((student, idx) => {
-                  const record = getStudentRecordForDate(student.id, selectedDate);
-                  const attendance = record?.attendance || null;
-                  const isUniformCompliant = record ? record.sportsUniform !== false : true;
+          classStudents.map((student, idx) => {
+            const log = getStudentRecordForDate(student.id, selectedDate);
+            const status = log?.attendance || null;
 
-                  const isPresent = attendance === 'present';
-                  const isAbsent = attendance === 'absent';
-                  const isLate = attendance === 'late';
+            return (
+              <div
+                key={student.id}
+                className="p-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 hover:bg-zinc-50 transition-colors"
+              >
+                {/* Name */}
+                <div className="flex items-center gap-2 min-w-[140px]">
+                  <span className="text-xs font-black text-zinc-400 w-4 text-center">
+                    {idx + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStudentId(student.id)}
+                    className="text-xs font-extrabold text-zinc-900 hover:text-emerald-700 text-right truncate cursor-pointer"
+                  >
+                    {student.name}
+                  </button>
+                  {student.medicalNotes && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-1 rounded">
+                      ⚠️
+                    </span>
+                  )}
+                </div>
 
-                  const rowBg = isPresent
-                    ? 'bg-emerald-50/30'
-                    : isAbsent
-                    ? 'bg-red-50/30'
-                    : isLate
-                    ? 'bg-amber-50/30'
-                    : '';
+                {/* Dynamic Check Items & Attendance Status */}
+                <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
+                  {/* Dynamic Attendance Check Items (e.g. Uniform, Shoes, Notebook, etc.) */}
+                  {attendanceCheckItems.map((item) => {
+                    const isUniform = item.id === 'uniform';
+                    const isChecked = isUniform
+                      ? log?.uniform !== false
+                      : log?.customChecks?.[item.id] === true;
 
-                  return (
-                    <tr
-                      key={student.id}
-                      className={`hover:bg-zinc-100/60 transition-colors ${rowBg}`}
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(25);
+                          toggleStudentCheckItem(student.id, selectedClassId, selectedDate, item.id);
+                        }}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-black border transition-colors cursor-pointer select-none flex items-center gap-1 ${
+                          isChecked
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
+                            : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-400 border-zinc-200'
+                        }`}
+                        title={`تبديل ${item.name}`}
+                      >
+                        <span>{isChecked ? '☑' : '☐'}</span>
+                        <span>{item.name}</span>
+                      </button>
+                    );
+                  })}
+
+                  {/* Attendance State Direct Buttons */}
+                  <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setStatus(student.id, 'present')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-black transition-colors cursor-pointer ${
+                        status === 'present'
+                          ? 'bg-emerald-600 text-white shadow-2xs'
+                          : 'text-zinc-600 hover:text-zinc-900'
+                      }`}
                     >
-                      {/* 1. الرقم */}
-                      <td className="py-2.5 px-2 text-center font-bold text-zinc-400">
-                        {idx + 1}
-                      </td>
+                      حاضر
+                    </button>
 
-                      {/* 2. اسم الطالب */}
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-zinc-900 leading-tight">
-                            {student.name}
-                          </span>
-                          {student.medicalNotes && (
-                            <span
-                              title={student.medicalNotes}
-                              className="bg-amber-100 text-amber-900 text-[10px] px-1.5 py-0.5 rounded font-extrabold shrink-0"
-                            >
-                              🏥
-                            </span>
-                          )}
-                        </div>
-                        {student.studentNumber && (
-                          <div className="text-[10px] text-zinc-400">#{student.studentNumber}</div>
-                        )}
-                      </td>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(student.id, 'late')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-black transition-colors cursor-pointer ${
+                        status === 'late'
+                          ? 'bg-amber-500 text-white shadow-2xs'
+                          : 'text-zinc-600 hover:text-zinc-900'
+                      }`}
+                    >
+                      متأخر
+                    </button>
 
-                      {/* 3. الحضور (حاضر / غائب) */}
-                      <td className="py-2.5 px-2 text-center">
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            onClick={() => {
-                              triggerHaptic(40);
-                              setStudentAttendance(student.id, selectedClassId, selectedDate, 'present');
-                            }}
-                            className={`px-3 py-1.5 rounded-xl font-black text-xs transition-all active:scale-90 border min-h-[38px] min-w-[62px] ${
-                              isPresent
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm ring-1 ring-emerald-300'
-                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-200'
-                            }`}
-                          >
-                            🟢 حاضر
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              triggerHaptic(40);
-                              setStudentAttendance(student.id, selectedClassId, selectedDate, 'absent');
-                            }}
-                            className={`px-3 py-1.5 rounded-xl font-black text-xs transition-all active:scale-90 border min-h-[38px] min-w-[62px] ${
-                              isAbsent
-                                ? 'bg-red-600 text-white border-red-600 shadow-sm ring-1 ring-red-300'
-                                : 'bg-red-50 hover:bg-red-100 text-red-950 border-red-200'
-                            }`}
-                          >
-                            🔴 غائب
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* 4. متأخر */}
-                      <td className="py-2.5 px-2 text-center">
-                        <button
-                          onClick={() => {
-                            triggerHaptic(40);
-                            const nextStatus = isLate ? 'present' : 'late';
-                            setStudentAttendance(student.id, selectedClassId, selectedDate, nextStatus);
-                          }}
-                          className={`px-3 py-1.5 rounded-xl font-black text-xs transition-all active:scale-90 border min-h-[38px] ${
-                            isLate
-                              ? 'bg-amber-500 text-white border-amber-500 shadow-sm ring-1 ring-amber-300'
-                              : 'bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-200'
-                          }`}
-                        >
-                          🟡 متأخر
-                        </button>
-                      </td>
-
-                      {/* 5. الزي الرياضي */}
-                      <td className="py-2.5 px-2 text-center">
-                        <button
-                          onClick={() => {
-                            triggerHaptic(30);
-                            toggleSportsUniform(student.id, selectedClassId, selectedDate);
-                          }}
-                          className={`px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-90 border min-h-[38px] inline-flex items-center gap-1 ${
-                            isUniformCompliant
-                              ? 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100'
-                              : 'bg-red-100 text-red-900 border-red-300 hover:bg-red-200'
-                          }`}
-                        >
-                          <Shirt className={`w-3.5 h-3.5 ${isUniformCompliant ? 'text-blue-600' : 'text-red-600'}`} />
-                          <span>{isUniformCompliant ? 'ملتزم' : 'بدون زي'}</span>
-                        </button>
-                      </td>
-
-                      {/* 6. ملاحظات والتقييم */}
-                      <td className="py-2.5 px-2">
-                        <RowNotesAndEvaluations
-                          student={student}
-                          record={record}
-                          selectedClassId={selectedClassId}
-                          selectedDate={selectedDate}
-                          isNoteActive={activeNoteStudentId === student.id}
-                          onToggleNote={() =>
-                            setActiveNoteStudentId(
-                              activeNoteStudentId === student.id ? null : student.id
-                            )
-                          }
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(student.id, 'absent')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-black transition-colors cursor-pointer ${
+                        status === 'absent'
+                          ? 'bg-rose-600 text-white shadow-2xs'
+                          : 'text-zinc-600 hover:text-zinc-900'
+                      }`}
+                    >
+                      غائب
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
+
+      {/* MANAGE ATTENDANCE ITEMS MODAL */}
+      {showManageModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-4 max-w-md w-full space-y-4 text-right shadow-xl border border-zinc-200">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
+              <button
+                type="button"
+                onClick={() => setShowManageModal(false)}
+                className="text-zinc-400 hover:text-zinc-600 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+              <h3 className="text-sm font-black text-zinc-900 flex items-center gap-1.5">
+                <ListChecks className="w-4 h-4 text-emerald-600" />
+                <span>إدارة بنود التحضير والزي والمتابعة</span>
+              </h3>
+            </div>
+
+            {/* Add New Item */}
+            <form onSubmit={handleAddNewItem} className="flex gap-2">
+              <input
+                type="text"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                placeholder="اسم البند الجديد (مثلاً: حذاء رياضي، كراسة...)"
+                className="flex-1 bg-zinc-50 border border-zinc-200 px-3 py-1.5 text-xs font-bold rounded-lg outline-none"
+              />
+              <button
+                type="submit"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>إضافة بند</span>
+              </button>
+            </form>
+
+            {/* Existing Items List */}
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              <label className="text-[11px] font-black text-zinc-500 block">البنود الحالية:</label>
+              {attendanceCheckItems.length === 0 ? (
+                <p className="text-xs text-zinc-400 font-bold py-3 text-center bg-zinc-50 rounded-xl">
+                  لا توجد بنود تحضير مضافة (تم إلغاء/حذف الجميع)
+                </p>
+              ) : (
+                attendanceCheckItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2.5 bg-zinc-50 rounded-xl border border-zinc-200"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(item.id)}
+                      className="text-rose-600 hover:text-rose-700 p-1 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
+                      title="إلغاء / حذف هذا البند"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>إلغاء البند</span>
+                    </button>
+                    <span className="text-xs font-extrabold text-zinc-800">{item.name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 text-left border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setShowManageModal(false)}
+                className="bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-black px-4 py-1.5 rounded-lg cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// Subcomponent for compact inline row notes & evaluations (+⭐ / +🏆 / +⚠️)
-interface RowNotesAndEvaluationsProps {
-  student: Student;
-  record: any;
-  selectedClassId: string;
-  selectedDate: string;
-  isNoteActive: boolean;
-  onToggleNote: () => void;
-}
 
-const RowNotesAndEvaluations: React.FC<RowNotesAndEvaluationsProps> = ({
-  student,
-  record,
-  selectedClassId,
-  selectedDate,
-  isNoteActive,
-  onToggleNote,
-}) => {
-  const { incrementEvaluation, addStudentNote, triggerHaptic } = useApp();
-  const [localNote, setLocalNote] = useState(record?.notes || '');
-
-  const participations = record?.participations || 0;
-  const excellences = record?.excellences || 0;
-  const violations = record?.violations || 0;
-
-  const handleNoteSave = (val: string) => {
-    setLocalNote(val);
-    addStudentNote(student.id, selectedClassId, selectedDate, val);
-  };
-
-  return (
-    <div className="space-y-1">
-      {/* Quick note input or quick note toggle */}
-      <div className="flex items-center gap-1">
-        <input
-          type="text"
-          placeholder="ملاحظة..."
-          value={localNote}
-          onChange={(e) => handleNoteSave(e.target.value)}
-          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-2 py-1 text-[11px] font-semibold outline-none focus:border-emerald-500"
-        />
-
-        {/* Evaluation Buttons (+⭐, +🏆, +⚠️) */}
-        <button
-          onClick={() => {
-            triggerHaptic(20);
-            incrementEvaluation(student.id, selectedClassId, selectedDate, 'participation', 1);
-          }}
-          title="إضافة مشاركة (+1)"
-          className="px-1.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-black text-[10px] shrink-0 active:scale-90 border border-amber-200"
-        >
-          ⭐ {participations > 0 ? participations : '+'}
-        </button>
-
-        <button
-          onClick={() => {
-            triggerHaptic(20);
-            incrementEvaluation(student.id, selectedClassId, selectedDate, 'excellence', 1);
-          }}
-          title="إضافة تميز (+1)"
-          className="px-1.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-[10px] shrink-0 active:scale-90 border border-emerald-200"
-        >
-          🏆 {excellences > 0 ? excellences : '+'}
-        </button>
-
-        <button
-          onClick={() => {
-            triggerHaptic(20);
-            incrementEvaluation(student.id, selectedClassId, selectedDate, 'violation', 1);
-          }}
-          title="إضافة مخالفة (+1)"
-          className="px-1.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-950 font-black text-[10px] shrink-0 active:scale-90 border border-red-200"
-        >
-          ⚠️ {violations > 0 ? violations : '+'}
-        </button>
-      </div>
-
-      {/* Quick tags */}
-      <div className="flex flex-wrap gap-1 text-[9px]">
-        <button
-          onClick={() => handleNoteSave('بدون زي رياضي')}
-          className="bg-zinc-100 hover:bg-zinc-200 text-zinc-700 px-1.5 py-0.5 rounded font-bold"
-        >
-          👕 بدون زي
-        </button>
-        <button
-          onClick={() => handleNoteSave('عذر طبي')}
-          className="bg-amber-50 hover:bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold"
-        >
-          🏥 عذر
-        </button>
-      </div>
-    </div>
-  );
-};
