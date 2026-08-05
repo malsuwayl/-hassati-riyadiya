@@ -52,6 +52,7 @@ interface AppContextType {
 
   toast: ToastInfo | null;
   showToast: (message: string, type?: ToastInfo['type']) => void;
+  dismissToast: () => void;
   triggerHaptic: (ms?: number) => void;
 
   // Class actions
@@ -173,6 +174,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const showToast = useCallback((message: string, type: ToastInfo['type'] = 'info') => {
     setToast({ id: Date.now(), message, type });
   }, []);
+
+  const dismissToast = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  // Auto hide toast after 3.5 seconds
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const triggerHaptic = useCallback((ms = 30) => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
@@ -789,6 +803,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         toast,
         showToast,
+        dismissToast,
         triggerHaptic,
 
         addClass,

@@ -22,61 +22,65 @@ export const Header: React.FC = () => {
   });
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 border-b border-zinc-200 px-4 py-2 font-sans">
-      <div className="max-w-xl mx-auto flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/80 px-4 pt-6 sm:pt-4 pb-3 font-sans shadow-xs">
+      <div className="max-w-xl mx-auto flex items-center justify-between gap-2">
         <div
           onClick={() => setActiveTab('home')}
-          className="flex items-center gap-2 cursor-pointer select-none active:opacity-70 transition-opacity"
+          className="flex items-center gap-2.5 cursor-pointer select-none active:opacity-70 transition-opacity min-w-0"
         >
-          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-xs">
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
             بدنية
           </div>
-          <div>
-            <h1 className="text-xs font-black text-zinc-900 leading-tight">
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm font-black text-zinc-900 leading-tight truncate">
               {settings.schoolName || 'المدرسة'}
             </h1>
-            <p className="text-[10px] font-bold text-zinc-500">{settings.teacherName || 'معلم التربية البدنية'}</p>
+            <p className="text-[11px] font-bold text-zinc-500 truncate">{settings.teacherName || 'معلم التربية البدنية'}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[10px] sm:text-[11px] font-black text-zinc-700 bg-zinc-100 border border-zinc-200/80 px-3 py-1.5 rounded-xl">
             {formattedDate}
           </span>
 
           <button
             type="button"
             onClick={() => setActiveTab('incentives')}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTab === 'incentives'
-                ? 'bg-amber-100 text-amber-800'
+                ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-400/50'
                 : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
             }`}
             title="بنك التحفيز والمخالفات"
           >
-            <Sparkles className="w-4 h-4 text-amber-600" />
+            <Sparkles className="w-4.5 h-4.5 text-amber-600" />
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('students')}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTab === 'students'
-                ? 'bg-emerald-100 text-emerald-800'
+                ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500/40'
                 : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
             }`}
             title="إدارة الفصول والطلاب"
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4.5 h-4.5" />
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
-            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-colors cursor-pointer"
-            title="الإعدادات"
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              activeTab === 'settings'
+                ? 'bg-zinc-800 text-white'
+                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+            }`}
+            title="الإعدادات والتقارير"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4.5 h-4.5" />
           </button>
         </div>
       </div>
