@@ -19,10 +19,16 @@
 
 /* Safe area padding for mobile notch & home bar */
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 1rem);
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
 }
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0.5rem);
+  padding-top: max(2.75rem, calc(0.75rem + env(safe-area-inset-top, 0px)));
+}
+
+@media (min-width: 640px) {
+  .pt-safe {
+    padding-top: 1rem;
+  }
 }
 
 /* Card glass glow */

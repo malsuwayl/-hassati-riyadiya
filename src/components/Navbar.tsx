@@ -25,7 +25,7 @@ export const Header: React.FC = () => {
   });
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 pt-4 pb-3 font-sans shadow-2xs">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 pt-safe pb-3 font-sans shadow-2xs">
       <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
         {/* Brand / School Info */}
         <div

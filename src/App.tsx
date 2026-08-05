@@ -17,7 +17,7 @@ const MainContent: React.FC = () => {
   const { activeTab, isAuthModalOpen, setIsAuthModalOpen } = useApp();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-28 sm:pb-24 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <Header />
 
       <main className="max-w-4xl mx-auto px-3 pt-3">
