@@ -69,6 +69,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       onClose();
     } catch (err: any) {
       console.error(err);
+      if (
+        err?.name === 'AbortError' ||
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request' ||
+        err?.message?.includes('aborted')
+      ) {
+        // Closed popup or cancelled request, don't show scary error message
+        return;
+      }
       setErrorMsg(err.message || 'فشل تسجيل الدخول باستخدام Google');
     } finally {
       setIsSubmitting(false);

@@ -210,7 +210,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Auth Functions
   const loginWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      if (
+        err?.name === 'AbortError' ||
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request' ||
+        err?.message?.includes('aborted')
+      ) {
+        return;
+      }
+      throw err;
+    }
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
@@ -242,39 +254,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const userDocRef = doc(db, 'user_data', user.uid);
-    const unsubscribeDoc = onSnapshot(userDocRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.classes && data.classes.length > 0) setClasses(data.classes);
-        if (data.students && data.students.length > 0) setStudents(data.students);
-        if (data.dailyLogs) setDailyLogs(data.dailyLogs);
-        if (data.attendanceCheckItems) setAttendanceCheckItems(data.attendanceCheckItems);
-        if (data.assessments) setAssessments(data.assessments);
-        if (data.grades) setGrades(data.grades);
-        if (data.measurementItems) setMeasurementItems(data.measurementItems);
-        if (data.measurementValues) setMeasurementValues(data.measurementValues);
-        if (data.incentiveRecords) setIncentiveRecords(data.incentiveRecords);
-        if (data.timetable) setTimetable(data.timetable);
-        if (data.settings) setSettings(data.settings);
-      } else {
-        // Document does not exist yet in Firestore, create initial baseline from local state
-        setDoc(userDocRef, {
-          classes,
-          students,
-          dailyLogs,
-          attendanceCheckItems,
-          assessments,
-          grades,
-          measurementItems,
-          measurementValues,
-          incentiveRecords,
-          timetable,
-          settings,
-          updatedAt: new Date().toISOString(),
-        }).catch((err) => console.error('Error creating Firestore doc:', err));
+    const unsubscribeDoc = onSnapshot(
+      userDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data.classes && data.classes.length > 0) setClasses(data.classes);
+          if (data.students && data.students.length > 0) setStudents(data.students);
+          if (data.dailyLogs) setDailyLogs(data.dailyLogs);
+          if (data.attendanceCheckItems) setAttendanceCheckItems(data.attendanceCheckItems);
+          if (data.assessments) setAssessments(data.assessments);
+          if (data.grades) setGrades(data.grades);
+          if (data.measurementItems) setMeasurementItems(data.measurementItems);
+          if (data.measurementValues) setMeasurementValues(data.measurementValues);
+          if (data.incentiveRecords) setIncentiveRecords(data.incentiveRecords);
+          if (data.timetable) setTimetable(data.timetable);
+          if (data.settings) setSettings(data.settings);
+        } else {
+          // Document does not exist yet in Firestore, create initial baseline from local state
+          setDoc(userDocRef, {
+            classes,
+            students,
+            dailyLogs,
+            attendanceCheckItems,
+            assessments,
+            grades,
+            measurementItems,
+            measurementValues,
+            incentiveRecords,
+            timetable,
+            settings,
+            updatedAt: new Date().toISOString(),
+          }).catch((err) => console.error('Error creating Firestore doc:', err));
+        }
+        setIsInitialCloudLoaded(true);
+      },
+      (error) => {
+        console.warn('Firestore snapshot listener exception:', error);
       }
-      setIsInitialCloudLoaded(true);
-    });
+    );
 
     return () => unsubscribeDoc();
   }, [user]);
