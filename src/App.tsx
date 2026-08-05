@@ -11,15 +11,16 @@ import { StatisticsView } from './components/StatisticsView';
 import { StudentsView } from './components/StudentsView';
 import { SettingsView } from './components/SettingsView';
 import { StudentProfileModal } from './components/StudentProfileModal';
+import { AuthModal } from './components/AuthModal';
 
 const MainContent: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, isAuthModalOpen, setIsAuthModalOpen } = useApp();
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900 pb-20 font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <Header />
 
-      <main className="max-w-4xl mx-auto px-2 pt-2">
+      <main className="max-w-4xl mx-auto px-3 pt-3">
         {activeTab === 'home' && <HomeView />}
         {activeTab === 'attendance' && <AttendanceView />}
         {activeTab === 'grades' && <GradesView />}
@@ -31,6 +32,7 @@ const MainContent: React.FC = () => {
       </main>
 
       <StudentProfileModal />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       <BottomNav />
       <Toast />
     </div>

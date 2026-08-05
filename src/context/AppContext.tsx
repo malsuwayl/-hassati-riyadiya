@@ -12,6 +12,21 @@ import {
   TimetableEntry,
   TeacherSettings,
 } from '../types';
+import {
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  firebaseSignOut,
+  onAuthStateChanged,
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot,
+  db,
+  User,
+} from '../lib/firebase';
 
 export const DEFAULT_ATTENDANCE_CHECK_ITEMS: AttendanceCheckItem[] = [
   { id: 'uniform', name: 'الزي الرياضي' },
@@ -41,6 +56,16 @@ interface AppContextType {
   dailyLogs: DailyLogRecord[];
   timetable: TimetableEntry[];
   settings: TeacherSettings;
+
+  // Firebase Auth & Cloud Sync
+  user: User | null;
+  authLoading: boolean;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  registerWithEmail: (email: string, pass: string) => Promise<void>;
+  logoutUser: () => Promise<void>;
 
   selectedClassId: string;
   setSelectedClassId: (id: string) => void;
@@ -88,6 +113,12 @@ interface AppContextType {
     date: string,
     attendance: AttendanceStatus,
     uniform?: boolean
+  ) => void;
+  setStudentDailyLogNote: (
+    studentId: string,
+    classId: string,
+    date: string,
+    note: string
   ) => void;
   toggleStudentUniform: (studentId: string, classId: string, date: string) => void;
   markAllPresent: (classId: string, date: string) => void;
@@ -170,6 +201,125 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Incentives & Violations
   const [incentiveRecords, setIncentiveRecords] = useState<IncentiveRecord[]>([]);
+
+  // Firebase Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isInitialCloudLoaded, setIsInitialCloudLoaded] = useState<boolean>(false);
+
+  // Auth Functions
+  const loginWithGoogle = async () => {
+    await signInWithPopup(auth, googleProvider);
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
+  };
+
+  const registerWithEmail = async (email: string, pass: string) => {
+    await createUserWithEmailAndPassword(auth, email, pass);
+  };
+
+  const logoutUser = async () => {
+    await firebaseSignOut(auth);
+  };
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync with Firestore document when User is logged in
+  useEffect(() => {
+    if (!user) {
+      setIsInitialCloudLoaded(false);
+      return;
+    }
+
+    const userDocRef = doc(db, 'user_data', user.uid);
+    const unsubscribeDoc = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.classes && data.classes.length > 0) setClasses(data.classes);
+        if (data.students && data.students.length > 0) setStudents(data.students);
+        if (data.dailyLogs) setDailyLogs(data.dailyLogs);
+        if (data.attendanceCheckItems) setAttendanceCheckItems(data.attendanceCheckItems);
+        if (data.assessments) setAssessments(data.assessments);
+        if (data.grades) setGrades(data.grades);
+        if (data.measurementItems) setMeasurementItems(data.measurementItems);
+        if (data.measurementValues) setMeasurementValues(data.measurementValues);
+        if (data.incentiveRecords) setIncentiveRecords(data.incentiveRecords);
+        if (data.timetable) setTimetable(data.timetable);
+        if (data.settings) setSettings(data.settings);
+      } else {
+        // Document does not exist yet in Firestore, create initial baseline from local state
+        setDoc(userDocRef, {
+          classes,
+          students,
+          dailyLogs,
+          attendanceCheckItems,
+          assessments,
+          grades,
+          measurementItems,
+          measurementValues,
+          incentiveRecords,
+          timetable,
+          settings,
+          updatedAt: new Date().toISOString(),
+        }).catch((err) => console.error('Error creating Firestore doc:', err));
+      }
+      setIsInitialCloudLoaded(true);
+    });
+
+    return () => unsubscribeDoc();
+  }, [user]);
+
+  // Sync changes to Firestore when User is logged in
+  useEffect(() => {
+    if (!user || !isInitialCloudLoaded) return;
+    const timeout = setTimeout(() => {
+      const userDocRef = doc(db, 'user_data', user.uid);
+      setDoc(
+        userDocRef,
+        {
+          classes,
+          students,
+          dailyLogs,
+          attendanceCheckItems,
+          assessments,
+          grades,
+          measurementItems,
+          measurementValues,
+          incentiveRecords,
+          timetable,
+          settings,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch((err) => console.error('Error syncing to Cloud:', err));
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [
+    user,
+    isInitialCloudLoaded,
+    classes,
+    students,
+    dailyLogs,
+    attendanceCheckItems,
+    assessments,
+    grades,
+    measurementItems,
+    measurementValues,
+    incentiveRecords,
+    timetable,
+    settings,
+  ]);
 
   const showToast = useCallback((message: string, type: ToastInfo['type'] = 'info') => {
     setToast({ id: Date.now(), message, type });
@@ -608,6 +758,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('تم إعادة ضبط تحضير اليوم', 'info');
   };
 
+  const setStudentDailyLogNote = (
+    studentId: string,
+    classId: string,
+    date: string,
+    note: string
+  ) => {
+    setDailyLogs((prev) => {
+      const idx = prev.findIndex((l) => l.studentId === studentId && l.date === date);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = {
+          ...copy[idx],
+          notes: note,
+          updatedAt: new Date().toISOString(),
+        };
+        return copy;
+      } else {
+        return [
+          ...prev,
+          {
+            id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+            studentId,
+            classId,
+            date,
+            attendance: 'present',
+            uniform: true,
+            notes: note,
+            updatedAt: new Date().toISOString(),
+          },
+        ];
+      }
+    });
+  };
+
   const getStudentRecordForDate = (studentId: string, date: string) => {
     return dailyLogs.find((l) => l.studentId === studentId && l.date === date);
   };
@@ -821,6 +1005,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteAttendanceCheckItem,
         toggleStudentCheckItem,
         setStudentAttendance,
+        setStudentDailyLogNote,
         toggleStudentUniform,
         markAllPresent,
         clearAttendance,
@@ -849,6 +1034,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         updateSettings,
         restoreData,
+
+        // Firebase Auth & Cloud Sync
+        user,
+        authLoading,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
+        loginWithGoogle,
+        loginWithEmail,
+        registerWithEmail,
+        logoutUser,
       }}
     >
       {children}

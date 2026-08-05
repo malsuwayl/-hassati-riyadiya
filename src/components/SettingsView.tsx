@@ -7,8 +7,9 @@ import {
   generateIncentivesPDFReport,
   generateComprehensivePDFReport,
   generateStudentIndividualPDFReport,
+  generateStatisticsPDFReport,
 } from '../utils/pdfExport';
-import { Save, Download, Upload, School, UserCheck, Calendar, FileSpreadsheet, FileText, Plus, Trash2, Users } from 'lucide-react';
+import { Save, Download, Upload, School, UserCheck, Calendar, FileSpreadsheet, FileText, Plus, Trash2, Users, CloudCheck, LogIn, LogOut, ShieldCheck } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
 
 export const SettingsView: React.FC = () => {
@@ -29,6 +30,9 @@ export const SettingsView: React.FC = () => {
     measurementValues,
     attendanceCheckItems,
     incentiveRecords,
+    user,
+    setIsAuthModalOpen,
+    logoutUser,
     showToast,
   } = useApp();
 
@@ -39,7 +43,7 @@ export const SettingsView: React.FC = () => {
   const [selectedPDFClassId, setSelectedPDFClassId] = useState<string>(classes[0]?.id || '');
   const [selectedPDFStudentId, setSelectedPDFStudentId] = useState<string>('');
   const [pdfReportType, setPdfReportType] = useState<
-    'attendance' | 'measurements' | 'incentives' | 'comprehensive' | 'student_individual'
+    'attendance' | 'measurements' | 'incentives' | 'comprehensive' | 'student_individual' | 'statistics'
   >('attendance');
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
@@ -175,6 +179,18 @@ export const SettingsView: React.FC = () => {
           grades,
           settings
         );
+      } else if (pdfReportType === 'statistics') {
+        await generateStatisticsPDFReport(
+          targetClass,
+          students,
+          dailyLogs,
+          measurementItems,
+          measurementValues,
+          incentiveRecords,
+          assessments,
+          grades,
+          settings
+        );
       }
 
       showToast('تم تحميل التقرير بصيغة PDF بنجاح 📄', 'success');
@@ -187,6 +203,69 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-4 font-sans space-y-6">
+      {/* Cloud Account & Data Sync Card */}
+      <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-2xl p-5 text-white shadow-lg space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-700/60 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 bg-indigo-500/30 rounded-xl text-indigo-200 border border-indigo-400/30">
+              <CloudCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-white flex items-center gap-2">
+                <span>الحساب السحابي والمزامنة الدائمة</span>
+                {user && (
+                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    متصل ومتزامن ☁️
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-indigo-200 font-medium">
+                {user
+                  ? 'جميع بياناتك وفصولك وطلابك محفوظة سحابياً وتتزامن تلقائياً بحسابك.'
+                  : 'سجّل دخولك لحفظ بياناتك في حسابك الخاص واستعادتها من أي جهاز ميكرو.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="bg-white hover:bg-indigo-50 text-indigo-950 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md"
+          >
+            {user ? (
+              <>
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>إدارة حسابي</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4 text-indigo-600" />
+                <span>تسجيل الدخول / إنشاء حساب</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {user && (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1">
+            <span className="text-indigo-200 font-bold truncate">
+              البريد الإلكتروني: <strong className="text-white font-extrabold" dir="ltr">{user.email}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                await logoutUser();
+                showToast('تم تسجيل الخروج', 'info');
+              }}
+              className="text-rose-300 hover:text-rose-100 font-bold flex items-center gap-1 cursor-pointer underline text-[11px]"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>تسجيل الخروج</span>
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* General School Settings */}
       <form onSubmit={handleSaveGeneralSettings} className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-xs space-y-4">
         <h2 className="text-sm font-black text-zinc-900 border-b border-zinc-100 pb-2 flex items-center gap-2">
@@ -380,6 +459,7 @@ export const SettingsView: React.FC = () => {
                 <option value="attendance">📋 تقرير الحضور والغياب والزي الرياضي (للفصل)</option>
                 <option value="measurements">🏃‍♂️ تقرير القياسات وعناصر اللياقة البدنية (للفصل)</option>
                 <option value="incentives">⭐️ تقرير بنك التحفيز والسلوك والمخالفات (للفصل)</option>
+                <option value="statistics">📈 تقرير الإحصائيات والتحليلات العامة (للفصل)</option>
                 <option value="comprehensive">📊 التقرير الشامل والموحد للمادة (للفصل)</option>
                 <option value="student_individual">👤 تقرير الأداء الفردي الشامل (لطالب محدد)</option>
               </select>

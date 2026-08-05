@@ -4,7 +4,8 @@ import {
   evaluateMeasurementValue,
   calculateStudentFitnessSummary,
 } from '../utils/measurementUtils';
-import { Trophy, Award, CheckCircle, Activity, Shirt, Users, BarChart2, PieChart as PieIcon } from 'lucide-react';
+import { generateStatisticsPDFReport } from '../utils/pdfExport';
+import { Trophy, Award, CheckCircle, Activity, Shirt, Users, BarChart2, PieChart as PieIcon, Download } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -25,14 +26,42 @@ export const StatisticsView: React.FC = () => {
     selectedClassId,
     setSelectedClassId,
     dailyLogs,
+    incentiveRecords,
     assessments,
     grades,
     measurementItems,
     measurementValues,
+    settings,
+    showToast,
     setSelectedStudentId,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'leaderboards'>('overview');
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const handleExportStatsPDF = async () => {
+    const selectedClass = classes.find((c) => c.id === selectedClassId);
+    setIsExportingPDF(true);
+    showToast('جاري إعداد تقرير الإحصائيات بصيغة PDF...', 'info');
+    try {
+      await generateStatisticsPDFReport(
+        selectedClass,
+        students,
+        dailyLogs,
+        measurementItems,
+        measurementValues,
+        incentiveRecords,
+        assessments,
+        grades,
+        settings
+      );
+      showToast('تم تحميل تقرير الإحصائيات بنجاح 📄', 'success');
+    } catch (err) {
+      showToast('حدث خطأ أثناء تصدير إحصائيات PDF', 'error');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const classStudents = students.filter((s) => s.classId === selectedClassId);
 
@@ -137,6 +166,17 @@ export const StatisticsView: React.FC = () => {
               </option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={handleExportStatsPDF}
+            disabled={isExportingPDF}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+            title="تصدير تقرير الإحصائيات بصيغة PDF"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isExportingPDF ? 'جاري التصدير...' : 'تصدير PDF'}</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl text-xs font-black">

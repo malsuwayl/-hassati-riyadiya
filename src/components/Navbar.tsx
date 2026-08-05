@@ -6,14 +6,17 @@ import {
   CheckCheck,
   Award,
   Activity,
-  BarChart2,
   Users,
   Settings,
   Sparkles,
+  BarChart2,
+  CloudCheck,
+  UserCheck,
+  LogIn,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { settings, selectedDate, activeTab, setActiveTab } = useApp();
+  const { settings, selectedDate, activeTab, setActiveTab, user, setIsAuthModalOpen } = useApp();
 
   const formattedDate = new Date(selectedDate).toLocaleDateString('ar-SA', {
     weekday: 'short',
@@ -22,65 +25,69 @@ export const Header: React.FC = () => {
   });
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/80 px-4 pt-6 sm:pt-4 pb-3 font-sans shadow-xs">
-      <div className="max-w-xl mx-auto flex items-center justify-between gap-2">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 pt-4 pb-3 font-sans shadow-2xs">
+      <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+        {/* Brand / School Info */}
         <div
           onClick={() => setActiveTab('home')}
-          className="flex items-center gap-2.5 cursor-pointer select-none active:opacity-70 transition-opacity min-w-0"
+          className="flex items-center gap-2.5 cursor-pointer select-none active:scale-98 transition-transform min-w-0"
         >
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs border border-indigo-500/20">
             بدنية
           </div>
           <div className="min-w-0">
-            <h1 className="text-xs sm:text-sm font-black text-zinc-900 leading-tight truncate">
-              {settings.schoolName || 'المدرسة'}
+            <h1 className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">
+              {settings.schoolName || 'مدرسة التربية البدنية'}
             </h1>
-            <p className="text-[11px] font-bold text-zinc-500 truncate">{settings.teacherName || 'معلم التربية البدنية'}</p>
+            <p className="text-[11px] font-bold text-slate-500 truncate">
+              {settings.teacherName || 'معلم المادة'}
+            </p>
           </div>
         </div>
 
+        {/* Header Action Buttons */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] sm:text-[11px] font-black text-zinc-700 bg-zinc-100 border border-zinc-200/80 px-3 py-1.5 rounded-xl">
+          <span className="text-[11px] font-black text-slate-700 bg-slate-100/80 border border-slate-200/80 px-2.5 py-1.5 rounded-xl hidden md:inline-block">
             {formattedDate}
           </span>
 
+          {/* Cloud Sync Account Button */}
           <button
             type="button"
-            onClick={() => setActiveTab('incentives')}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-              activeTab === 'incentives'
-                ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-400/50'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+            onClick={() => setIsAuthModalOpen(true)}
+            className={`h-9 px-3 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-extrabold text-xs active:scale-95 ${
+              user
+                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300/80 shadow-2xs'
+                : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80'
             }`}
-            title="بنك التحفيز والمخالفات"
+            title={user ? `حساب سحابي: ${user.email}` : 'تسجيل الدخول وحفظ البيانات على حسابك السحابي'}
           >
-            <Sparkles className="w-4.5 h-4.5 text-amber-600" />
+            {user ? (
+              <>
+                <CloudCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-[11px] font-black text-emerald-900">حسابي ☁️</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="text-[11px] font-black text-indigo-900">حفظ سحابي ☁️</span>
+              </>
+            )}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('students')}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-              activeTab === 'students'
-                ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500/40'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
-            }`}
-            title="إدارة الفصول والطلاب"
-          >
-            <Users className="w-4.5 h-4.5" />
-          </button>
-
+          {/* Settings Button */}
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            className={`h-9 px-2.5 sm:px-3 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-bold text-xs active:scale-95 ${
               activeTab === 'settings'
-                ? 'bg-zinc-800 text-white'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+                ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-600/30'
+                : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200/80'
             }`}
-            title="الإعدادات والتقارير"
+            title="الإعدادات والبيانات"
           >
-            <Settings className="w-4.5 h-4.5" />
+            <Settings className="w-4 h-4 shrink-0" />
+            <span className="text-xs font-black hidden sm:inline">الإعدادات</span>
           </button>
         </div>
       </div>
@@ -124,14 +131,14 @@ export const BottomNav: React.FC = () => {
     },
     {
       id: 'statistics',
-      label: 'الإحصائيات',
+      label: 'التقارير',
       icon: <BarChart2 className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-zinc-200 pb-safe font-sans">
-      <div className="max-w-xl mx-auto grid grid-cols-7 px-1 py-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 pb-safe font-sans shadow-lg">
+      <div className="max-w-2xl mx-auto grid grid-cols-7 px-1 py-1.5">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -142,14 +149,14 @@ export const BottomNav: React.FC = () => {
                 triggerHaptic(15);
                 setActiveTab(item.id);
               }}
-              className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-colors cursor-pointer ${
+              className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl transition-all cursor-pointer ${
                 isActive
-                  ? 'text-emerald-700 font-black bg-emerald-50'
-                  : 'text-zinc-500 hover:text-zinc-800 font-bold'
+                  ? 'text-indigo-700 font-black bg-indigo-50/90 shadow-2xs border border-indigo-200/60'
+                  : 'text-slate-500 hover:text-slate-900 font-bold'
               }`}
             >
               {item.icon}
-              <span className="text-[9px] sm:text-[10px] mt-0.5 leading-tight truncate max-w-full">
+              <span className="text-[9px] sm:text-[10px] mt-0.5 leading-none font-extrabold truncate max-w-full">
                 {item.label}
               </span>
             </button>
@@ -159,4 +166,5 @@ export const BottomNav: React.FC = () => {
     </nav>
   );
 };
+
 

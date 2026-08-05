@@ -859,3 +859,203 @@ export const generateStudentIndividualPDFReport = async (
   await renderContainerToPDF(container, `تقرير_الطالب_${student.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
 };
 
+/**
+ * 6. STATISTICS & ANALYTICS PDF REPORT (تقرير الإحصائيات والتحليلات العامة)
+ */
+export const generateStatisticsPDFReport = async (
+  classItem: ClassItem | undefined,
+  students: Student[],
+  dailyLogs: DailyLogRecord[],
+  measurementItems: MeasurementItem[],
+  measurementValues: Record<string, Record<string, string | number>>,
+  incentiveRecords: IncentiveRecord[],
+  assessments: AssessmentItem[],
+  grades: Record<string, Record<string, number>>,
+  settings: TeacherSettings
+) => {
+  const container = document.createElement('div');
+  container.style.padding = '32px';
+
+  const targetStudents = classItem
+    ? students.filter((s) => s.classId === classItem.id)
+    : students;
+
+  const className = classItem ? classItem.name : 'جميع الفصول الدراسية';
+
+  // Metrics
+  const targetStudentIds = targetStudents.map((s) => s.id);
+  const targetLogs = dailyLogs.filter((l) => targetStudentIds.includes(l.studentId));
+  const totalLogs = targetLogs.length || 1;
+  const presentLogs = targetLogs.filter((l) => l.attendance === 'present').length;
+  const absentLogs = targetLogs.filter((l) => l.attendance === 'absent').length;
+  const lateLogs = targetLogs.filter((l) => l.attendance === 'late').length;
+  const uniformViolations = targetLogs.filter((l) => l.attendance === 'present' && l.uniform === false).length;
+  const attendanceRate = Math.round((presentLogs / totalLogs) * 100);
+
+  // Fitness Levels Breakdown
+  const fitnessCounts: Record<string, number> = {
+    'ممتاز': 0,
+    'جيد جداً': 0,
+    'جيد': 0,
+    'مقبول': 0,
+    'ضعيف': 0,
+  };
+
+  const studentRankings = targetStudents.map((st) => {
+    const fit = calculateStudentFitnessSummary(st.id, measurementItems, measurementValues);
+    const lvl = fit.ratingLevel || 'مقبول';
+    if (fitnessCounts[lvl] !== undefined) {
+      fitnessCounts[lvl]++;
+    } else {
+      fitnessCounts['مقبول']++;
+    }
+
+    // Incentive points
+    const stIncentives = incentiveRecords.filter((r) => r.studentId === st.id);
+    const netPoints = stIncentives.reduce((acc, curr) => acc + curr.points, 0);
+
+    // Grades
+    const stGrades = grades[st.id] || {};
+    let earnedSum = 0;
+    assessments.forEach((ass) => {
+      const sc = stGrades[ass.id];
+      if (sc !== undefined && !isNaN(sc)) earnedSum += sc;
+    });
+
+    return {
+      student: st,
+      fitnessScore: fit.totalScore,
+      fitnessLevel: lvl,
+      points: netPoints,
+      earnedGrades: earnedSum,
+    };
+  });
+
+  // Sort top students by points & fitness
+  const topIncentives = [...studentRankings].sort((a, b) => b.points - a.points).slice(0, 5);
+  const topFitness = [...studentRankings].sort((a, b) => b.fitnessScore - a.fitnessScore).slice(0, 5);
+
+  const topIncentiveRows = topIncentives.map((item, idx) => `
+    <tr style="border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 700;">
+      <td style="padding: 6px; text-align: center; font-weight: 900; color: #d97706;">#${idx + 1}</td>
+      <td style="padding: 6px; text-align: right; color: #18181b;">${item.student.name}</td>
+      <td style="padding: 6px; text-align: center; color: #047857; font-weight: 900;">+${item.points} نقطة</td>
+    </tr>
+  `).join('');
+
+  const topFitnessRows = topFitness.map((item, idx) => `
+    <tr style="border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 700;">
+      <td style="padding: 6px; text-align: center; font-weight: 900; color: #0284c7;">#${idx + 1}</td>
+      <td style="padding: 6px; text-align: right; color: #18181b;">${item.student.name}</td>
+      <td style="padding: 6px; text-align: center; color: #0284c7; font-weight: 900;">${item.fitnessScore} نقطة (${item.fitnessLevel})</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    ${buildReportHeaderHTML(
+      'تقرير الإحصائيات والتحليلات العامة',
+      `ملخص الأداء والمؤشرات للفصل: ${className}`,
+      className,
+      settings
+    )}
+
+    <!-- KPI Cards Row -->
+    <div style="display: flex; gap: 12px; margin-bottom: 20px; text-align: center;">
+      <div style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 12px;">
+        <span style="font-size: 10px; font-weight: 800; color: #166534; display: block;">إجمالي الطلاب</span>
+        <strong style="font-size: 20px; color: #065f46; font-weight: 900;">${targetStudents.length} طالب</strong>
+      </div>
+
+      <div style="flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 12px;">
+        <span style="font-size: 10px; font-weight: 800; color: #1e40af; display: block;">نسبة الانضباط والحضور</span>
+        <strong style="font-size: 20px; color: #1d4ed8; font-weight: 900;">${attendanceRate}%</strong>
+      </div>
+
+      <div style="flex: 1; background: #fefce8; border: 1px solid #fef08a; padding: 12px; border-radius: 12px;">
+        <span style="font-size: 10px; font-weight: 800; color: #854d0e; display: block;">سجل الغياب والتأخر</span>
+        <strong style="font-size: 16px; color: #ca8a04; font-weight: 900;">${absentLogs} غياب | ${lateLogs} تأخر</strong>
+      </div>
+
+      <div style="flex: 1; background: #faf5ff; border: 1px solid #e9d5ff; padding: 12px; border-radius: 12px;">
+        <span style="font-size: 10px; font-weight: 800; color: #6b21a8; display: block;">مخالفات الزي الرياضي</span>
+        <strong style="font-size: 20px; color: #7e22ce; font-weight: 900;">${uniformViolations} مخالفة</strong>
+      </div>
+    </div>
+
+    <!-- Fitness Distribution Breakdown Table -->
+    <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 900; color: #047857;">
+        🏃‍♂️ توزيع مستويات اللياقة البدنية والبدانة
+      </h3>
+      <div style="display: flex; gap: 8px; text-align: center;">
+        <div style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px; border-radius: 8px;">
+          <span style="font-size: 10px; font-weight: 800; color: #15803d; display: block;">ممتاز</span>
+          <strong style="font-size: 15px; color: #166534;">${fitnessCounts['ممتاز']} طالب</strong>
+        </div>
+        <div style="flex: 1; background: #e0f2fe; border: 1px solid #bae6fd; padding: 8px; border-radius: 8px;">
+          <span style="font-size: 10px; font-weight: 800; color: #0369a1; display: block;">جيد جداً</span>
+          <strong style="font-size: 15px; color: #075985;">${fitnessCounts['جيد جداً']} طالب</strong>
+        </div>
+        <div style="flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; padding: 8px; border-radius: 8px;">
+          <span style="font-size: 10px; font-weight: 800; color: #1d4ed8; display: block;">جيد</span>
+          <strong style="font-size: 15px; color: #1e40af;">${fitnessCounts['جيد']} طالب</strong>
+        </div>
+        <div style="flex: 1; background: #fefce8; border: 1px solid #fef08a; padding: 8px; border-radius: 8px;">
+          <span style="font-size: 10px; font-weight: 800; color: #a16207; display: block;">مقبول</span>
+          <strong style="font-size: 15px; color: #854d0e;">${fitnessCounts['مقبول']} طالب</strong>
+        </div>
+        <div style="flex: 1; background: #fef2f2; border: 1px solid #fecaca; padding: 8px; border-radius: 8px;">
+          <span style="font-size: 10px; font-weight: 800; color: #b91c1c; display: block;">ضعيف</span>
+          <strong style="font-size: 15px; color: #991b1b;">${fitnessCounts['ضعيف']} طالب</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboards Section -->
+    <div style="display: flex; gap: 16px; margin-bottom: 20px;">
+      <!-- Top Incentives -->
+      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 14px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 900; color: #d97706; border-bottom: 2px solid #fef08a; padding-bottom: 4px;">
+          🏆 المتصدرون في بنك التحفيز والسلوك
+        </h4>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #fffbeb; font-size: 10px; font-weight: 900; color: #78350f;">
+              <th style="padding: 6px; text-align: center; width: 35px;">المركز</th>
+              <th style="padding: 6px; text-align: right;">اسم الطالب</th>
+              <th style="padding: 6px; text-align: center;">النقاط</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${topIncentiveRows || '<tr><td colspan="3" style="text-align: center; padding: 8px;">لا توجد بيانات</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Top Fitness -->
+      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 14px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 900; color: #0284c7; border-bottom: 2px solid #bae6fd; padding-bottom: 4px;">
+          🏃‍♂️ المتصدرون في اللياقة والبدنية
+        </h4>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #f0f9ff; font-size: 10px; font-weight: 900; color: #0c4a6e;">
+              <th style="padding: 6px; text-align: center; width: 35px;">المركز</th>
+              <th style="padding: 6px; text-align: right;">اسم الطالب</th>
+              <th style="padding: 6px; text-align: center;">مجموع النقاط</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${topFitnessRows || '<tr><td colspan="3" style="text-align: center; padding: 8px;">لا توجد بيانات</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    ${buildReportFooterHTML(settings.teacherName)}
+  `;
+
+  container.innerHTML = html;
+  await renderContainerToPDF(container, `تقرير_إحصائيات_${className.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+};
+

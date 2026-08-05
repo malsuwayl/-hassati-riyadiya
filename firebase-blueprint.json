@@ -1,0 +1,29 @@
+{
+  "entities": {
+    "users": {
+      "title": "Users",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email"]
+    },
+    "user_data": {
+      "title": "Teacher Data Store",
+      "description": "Per-user application data including classes, students, grades, logs",
+      "type": "object",
+      "properties": {
+        "classes": { "type": "array" },
+        "students": { "type": "array" },
+        "dailyLogs": { "type": "array" },
+        "gradeRecords": { "type": "array" },
+        "assessments": { "type": "array" },
+        "attendanceCheckItems": { "type": "array text" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  }
+}

@@ -10,10 +10,14 @@ import {
   Users,
   Building2,
   FileSpreadsheet,
+  Download,
+  FileText,
   X,
   ChevronLeft,
 } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
+import { exportToExcel } from '../utils/fileImportExport';
+import { generateComprehensivePDFReport } from '../utils/pdfExport';
 
 export const StudentsView: React.FC = () => {
   const {
@@ -28,10 +32,66 @@ export const StudentsView: React.FC = () => {
     updateStudent,
     deleteStudent,
     setSelectedStudentId,
+    dailyLogs,
+    measurementItems,
+    measurementValues,
+    incentiveRecords,
+    assessments,
+    grades,
+    settings,
+    showToast,
     triggerHaptic,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'students' | 'classes'>('students');
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const handleExportExcel = () => {
+    triggerHaptic(20);
+    try {
+      exportToExcel(
+        classes,
+        students,
+        dailyLogs,
+        assessments,
+        grades,
+        measurementItems,
+        measurementValues
+      );
+      showToast('تم تصدير ملف Excel للطلاب بنجاح 📊', 'success');
+    } catch (err) {
+      showToast('حدث خطأ أثناء تصدير Excel', 'error');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    triggerHaptic(20);
+    const targetClass = filterClassId !== 'all' ? classes.find((c) => c.id === filterClassId) : classes[0];
+    if (!targetClass) {
+      showToast('يرجى تحديد فصل لتصدير التقرير', 'error');
+      return;
+    }
+    setIsExportingPDF(true);
+    showToast('جاري تصدير التقرير الشامل بصيغة PDF...', 'info');
+    try {
+      await generateComprehensivePDFReport(
+        targetClass,
+        students.filter((s) => s.classId === targetClass.id),
+        dailyLogs,
+        measurementItems,
+        measurementValues,
+        incentiveRecords,
+        assessments,
+        grades,
+        settings
+      );
+      showToast('تم تحميل التقرير الشامل بنجاح 📄', 'success');
+    } catch (err) {
+      showToast('حدث خطأ أثناء تصدير PDF', 'error');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   // Student Search and Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -215,17 +275,68 @@ export const StudentsView: React.FC = () => {
       {/* STUDENTS SUB-TAB */}
       {activeSubTab === 'students' && (
         <div className="space-y-3">
-          {/* Top Header & Search Bar */}
-          <div className="bg-white rounded-xl p-3 border border-zinc-200 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="w-4 h-4 text-zinc-400 absolute right-2.5 top-2.5" />
+          {/* Main Action Banner */}
+          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-xs space-y-3">
+            {/* Primary Add Button & Import/Export Tools */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              {/* Primary Add Student Button */}
+              <button
+                type="button"
+                onClick={handleOpenAddModal}
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.98] shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إضافة طالب جديد</span>
+              </button>
+
+              {/* Utility Tools Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(20);
+                    setIsImportModalOpen(true);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                  title="استيراد الطلاب من ملف Excel أو CSV"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
+                  <span>استيراد</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/80 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-2xs"
+                  title="تصدير كـ ملف Excel"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>تصدير Excel</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  disabled={isExportingPDF}
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border border-indigo-200/80 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-2xs disabled:opacity-50"
+                  title="تصدير تقرير الفصل الشامل PDF"
+                >
+                  <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>{isExportingPDF ? 'جاري التصدير...' : 'تقرير PDF'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Search Bar & Class Filter */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+              <div className="relative sm:col-span-2">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="بحث بالاسم أو السجل..."
+                  placeholder="بحث بالاسم أو رقم السجل..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-3 pr-8 py-1.5 bg-zinc-50 border border-zinc-200 text-xs font-semibold rounded-lg outline-none focus:border-emerald-500"
+                  className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-colors"
                 />
               </div>
 
@@ -233,40 +344,15 @@ export const StudentsView: React.FC = () => {
               <select
                 value={filterClassId}
                 onChange={(e) => setFilterClassId(e.target.value)}
-                className="bg-zinc-50 border border-zinc-200 text-zinc-900 font-extrabold text-xs rounded-lg px-2.5 py-1.5 outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-extrabold text-xs rounded-xl px-3 py-2 outline-none focus:border-indigo-500 cursor-pointer"
               >
-                <option value="all">جميع الفصول</option>
+                <option value="all">جميع الفصول الدراسية</option>
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>
                     {cls.name}
                   </option>
                 ))}
               </select>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic(20);
-                    setIsImportModalOpen(true);
-                  }}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap"
-                  title="استيراد الطلاب من ملف Excel أو CSV"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>استيراد</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleOpenAddModal}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>إضافة طالب</span>
-                </button>
-              </div>
             </div>
           </div>
 
