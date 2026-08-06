@@ -52,6 +52,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         setErrorMsg('هذا البريد الإلكتروني مستخدم بالفعل، يمكنك تسجيل الدخول');
       } else if (err.code === 'auth/weak-password') {
         setErrorMsg('كلمة المرور ضعيفة (يجب أن تكون 6 خانات على الأقل)');
+      } else if (err.code === 'auth/operation-not-allowed' || err?.message?.includes('operation-not-allowed')) {
+        setErrorMsg('تسجيل الدخول بالبريد وكلمة المرور غير مفعل في إعدادات المشروع. يُرجى استخدام زر "الدخول بواسطة Google" أدناه للمتابعة والمزامنة المباشرة.');
       } else {
         setErrorMsg(err.message || 'حدث خطأ أثناء الاتصال بالحساب');
       }
