@@ -3,14 +3,45 @@ import { useApp } from '../context/AppContext';
 import { exportAppStateToJSON, importAppStateFromJSON, exportToExcel } from '../utils/fileImportExport';
 import {
   generateAttendancePDFReport,
+  generateGradesPDFReport,
   generateMeasurementsPDFReport,
   generateIncentivesPDFReport,
   generateComprehensivePDFReport,
   generateStudentIndividualPDFReport,
   generateStatisticsPDFReport,
 } from '../utils/pdfExport';
-import { Save, Download, Upload, School, UserCheck, Calendar, FileSpreadsheet, FileText, Plus, Trash2, Users, CloudCheck, LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import {
+  Save,
+  Download,
+  Upload,
+  School,
+  UserCheck,
+  Calendar,
+  FileSpreadsheet,
+  FileText,
+  Plus,
+  Trash2,
+  Users,
+  CloudCheck,
+  LogIn,
+  LogOut,
+  ShieldCheck,
+  Bell,
+  Volume2,
+  Clock,
+  Smartphone,
+  Check,
+} from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
+import {
+  DEFAULT_PERIOD_TIMES,
+  DEFAULT_NOTIFICATION_SETTINGS,
+} from '../data/initialData';
+import { PeriodTimeConfig, NotificationSettings } from '../types';
+import {
+  triggerFullPeriodAlert,
+  requestBrowserNotificationPermission,
+} from '../utils/notificationSound';
 
 export const SettingsView: React.FC = () => {
   const {
@@ -43,7 +74,7 @@ export const SettingsView: React.FC = () => {
   const [selectedPDFClassId, setSelectedPDFClassId] = useState<string>(classes[0]?.id || '');
   const [selectedPDFStudentId, setSelectedPDFStudentId] = useState<string>('');
   const [pdfReportType, setPdfReportType] = useState<
-    'attendance' | 'measurements' | 'incentives' | 'comprehensive' | 'student_individual' | 'statistics'
+    'attendance' | 'grades' | 'measurements' | 'incentives' | 'comprehensive' | 'student_individual' | 'statistics'
   >('attendance');
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
@@ -56,6 +87,52 @@ export const SettingsView: React.FC = () => {
   ];
 
   const periods = [1, 2, 3, 4, 5, 6, 7];
+
+  const periodTimesList: PeriodTimeConfig[] =
+    settings.periodTimes && settings.periodTimes.length > 0
+      ? settings.periodTimes
+      : DEFAULT_PERIOD_TIMES;
+
+  const notifSettings: NotificationSettings = {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    ...(settings.notifications || {}),
+  };
+
+  const handleUpdatePeriodTime = (pNum: number, field: 'startTime' | 'endTime', val: string) => {
+    const updated = periodTimesList.map((pt) =>
+      pt.periodNumber === pNum ? { ...pt, [field]: val } : pt
+    );
+    updateSettings({ periodTimes: updated });
+  };
+
+  const handleUpdateNotifSettings = (updates: Partial<NotificationSettings>) => {
+    const newNotif = { ...notifSettings, ...updates };
+    updateSettings({ notifications: newNotif });
+  };
+
+  const handleTestBell = () => {
+    triggerFullPeriodAlert(
+      '🔔 تجربة جرس الحصة والمنادي الآلي',
+      `تنبيه تجريبي: حان الآن موعد حصة ${classes[0]?.name || 'الأول ثانوي - 1'}!`,
+      'start',
+      {
+        enableSound: notifSettings.enableSound,
+        enableTTS: notifSettings.enableTTS,
+        enableBrowser: notifSettings.enableBrowserNotifications,
+      }
+    );
+    showToast('تم انطلاق نغمة الجرس والمنادي الآلي التجريبي 🔔', 'success');
+  };
+
+  const handleRequestBrowserPermission = async () => {
+    const perm = await requestBrowserNotificationPermission();
+    if (perm === 'granted') {
+      showToast('تم تفعيل إشعارات المتصفح والجهاز بنجاح! 📱', 'success');
+      handleUpdateNotifSettings({ enableBrowserNotifications: true });
+    } else {
+      showToast('لم يتم منح الإذن لإشعارات المتصفح، يرجى تفعيلها من إعدادات المتصفح', 'warning');
+    }
+  };
 
   const handleSaveGeneralSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +227,14 @@ export const SettingsView: React.FC = () => {
           classSts,
           dailyLogs,
           attendanceCheckItems,
+          settings
+        );
+      } else if (pdfReportType === 'grades') {
+        await generateGradesPDFReport(
+          targetClass,
+          classSts,
+          assessments,
+          grades,
           settings
         );
       } else if (pdfReportType === 'measurements') {
@@ -354,6 +439,224 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
+      {/* Class Alerts & School Bell Notification Settings */}
+      <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-xs space-y-5">
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <h2 className="text-sm font-black text-zinc-900 flex items-center gap-2">
+            <Bell className="w-4 h-4 text-indigo-600" />
+            <span>إعدادات تنبيهات وجرس الحصص الدراسية</span>
+          </h2>
+          <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-indigo-200/80">
+            تنبيهات تلقائية 🔔
+          </span>
+        </div>
+
+        {/* How Notifications Reach the Teacher Explanatory Card */}
+        <div className="bg-gradient-to-br from-indigo-50 via-slate-50 to-emerald-50/50 p-4 rounded-2xl border border-indigo-100 space-y-3">
+          <h3 className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+            <Smartphone className="w-4 h-4 text-indigo-600" />
+            <span>كيف تصلك التنبيهات وإشعارات الحصص؟</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px] text-slate-700 font-bold">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex items-start gap-2 shadow-2xs">
+              <span className="text-base leading-none">📱</span>
+              <div>
+                <strong className="text-slate-900 block font-black">إشعارات المتصفح والجهاز:</strong>
+                تصلك تنبيهات سريعة ومبوبة على جهازك حتى لو كنت تتصفح منصة أخرى!
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex items-start gap-2 shadow-2xs">
+              <span className="text-base leading-none">🔔</span>
+              <div>
+                <strong className="text-slate-900 block font-black">جرس المدرسة المباشر:</strong>
+                نغمات جرس مدرسة واضحة تنطلق تلقائياً عند بداية ونهاية الحصة.
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex items-start gap-2 shadow-2xs">
+              <span className="text-base leading-none">📢</span>
+              <div>
+                <strong className="text-slate-900 block font-black">المنادي الناطق باللغة العربية:</strong>
+                ينادي التطبيق باسم الفصل الحاضر (مثال: "حان الآن موعد حصة الأول ثانوي").
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex items-start gap-2 shadow-2xs">
+              <span className="text-base leading-none">⏱️</span>
+              <div>
+                <strong className="text-slate-900 block font-black">التنبيه المسبق قبل الحصة:</strong>
+                ينبهك التطبيق قبل الحصة بـ 5 دقائق لتجهز نفسك للتوجه للفصل!
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleTestBell}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow-xs cursor-pointer transition-colors"
+            >
+              <Volume2 className="w-4 h-4" />
+              <span>تجربة نغمة الجرس والمنادي الآلي الآن 🔔</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRequestBrowserPermission}
+              className="bg-white hover:bg-indigo-50 text-indigo-900 border border-indigo-200 px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow-2xs cursor-pointer transition-colors"
+            >
+              <Smartphone className="w-4 h-4 text-indigo-600" />
+              <span>تفعيل إشعارات المتصفح والنظام (Push Notifications)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Notification Options Switches */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+            <Bell className="w-3.5 h-3.5 text-indigo-600" />
+            <span>خيارات التنبيه والجرس المفعلة</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-extrabold text-slate-800">
+            <label className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-100">
+              <input
+                type="checkbox"
+                checked={notifSettings.enableAlerts}
+                onChange={(e) => handleUpdateNotifSettings({ enableAlerts: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <span>تفعيل نظام التنبيهات العام</span>
+            </label>
+
+            <label className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-100">
+              <input
+                type="checkbox"
+                checked={notifSettings.enablePreClassAlert}
+                onChange={(e) => handleUpdateNotifSettings({ enablePreClassAlert: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <span>تنبيه مسبق قبل بداية الحصة</span>
+            </label>
+
+            <label className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-100">
+              <input
+                type="checkbox"
+                checked={notifSettings.enableClassStartBell}
+                onChange={(e) => handleUpdateNotifSettings({ enableClassStartBell: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <span>جرس بداية الحصة التلقائي</span>
+            </label>
+
+            <label className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-100">
+              <input
+                type="checkbox"
+                checked={notifSettings.enablePreEndAlert}
+                onChange={(e) => handleUpdateNotifSettings({ enablePreEndAlert: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <span>تنبيه قبل نهاية الحصة بـ 5 دقائق</span>
+            </label>
+
+            <label className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-100">
+              <input
+                type="checkbox"
+                checked={notifSettings.enableClassEndBell}
+                onChange={(e) => handleUpdateNotifSettings({ enableClassEndBell: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <span>جرس نهاية الحصة / الانصراف</span>
+            </label>
+
+            <label className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-100">
+              <input
+                type="checkbox"
+                checked={notifSettings.enableSound}
+                onChange={(e) => handleUpdateNotifSettings({ enableSound: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <span>تشغيل نغمة الجرس الصوتي 🔊</span>
+            </label>
+
+            <label className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-100">
+              <input
+                type="checkbox"
+                checked={notifSettings.enableTTS}
+                onChange={(e) => handleUpdateNotifSettings({ enableTTS: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <span>المنادي الصوتي الناطق باللغة العربية 📢</span>
+            </label>
+
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+              <span className="text-xs font-extrabold text-slate-700">التنبيه المسبق قبل الحصة بـ:</span>
+              <select
+                value={notifSettings.preClassMinutes || 5}
+                onChange={(e) => handleUpdateNotifSettings({ preClassMinutes: parseInt(e.target.value, 10) })}
+                className="bg-white border border-slate-200 text-xs font-black rounded-lg px-2 py-1 outline-none"
+              >
+                <option value={1}>1 دقيقة</option>
+                <option value={3}>3 دقائق</option>
+                <option value={5}>5 دقائق</option>
+                <option value={10}>10 دقائق</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Period Times Configuration Table */}
+        <div className="space-y-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-indigo-600" />
+              <span>ضبط مواعيد بداية ونهاية الحصص الدراسية</span>
+            </h3>
+            <span className="text-[11px] text-slate-400 font-bold">تحديد التوقيت بالساعة والدقيقة</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {periodTimesList.map((pt) => (
+              <div
+                key={pt.periodNumber}
+                className="bg-slate-50/90 p-3 rounded-xl border border-slate-200/80 space-y-2"
+              >
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
+                  <span className="text-xs font-black text-indigo-900">الحصة {pt.periodNumber}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {pt.startTime} - {pt.endTime}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">البداية</label>
+                    <input
+                      type="time"
+                      value={pt.startTime}
+                      onChange={(e) => handleUpdatePeriodTime(pt.periodNumber, 'startTime', e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-900 font-bold outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">النهاية</label>
+                    <input
+                      type="time"
+                      value={pt.endTime}
+                      onChange={(e) => handleUpdatePeriodTime(pt.periodNumber, 'endTime', e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-900 font-bold outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Weekly Timetable Setup */}
       <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-xs space-y-4 overflow-x-auto">
         <h2 className="text-sm font-black text-zinc-900 border-b border-zinc-100 pb-2 flex items-center gap-2">
@@ -457,6 +760,7 @@ export const SettingsView: React.FC = () => {
                 className="w-full bg-white border border-emerald-200 text-xs font-bold text-zinc-900 rounded-xl px-3 py-2 outline-none focus:border-emerald-500"
               >
                 <option value="attendance">📋 تقرير الحضور والغياب والزي الرياضي (للفصل)</option>
+                <option value="grades">📝 تقرير كشف الدرجات واختبارات التقييم (للفصل)</option>
                 <option value="measurements">🏃‍♂️ تقرير القياسات وعناصر اللياقة البدنية (للفصل)</option>
                 <option value="incentives">⭐️ تقرير بنك التحفيز والسلوك والمخالفات (للفصل)</option>
                 <option value="statistics">📈 تقرير الإحصائيات والتحليلات العامة (للفصل)</option>

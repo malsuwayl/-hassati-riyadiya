@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, FileText } from 'lucide-react';
+import { generateGradesPDFReport } from '../utils/pdfExport';
 
 export const GradesView: React.FC = () => {
   const {
@@ -15,13 +16,38 @@ export const GradesView: React.FC = () => {
     setStudentGradeScore,
     triggerHaptic,
     setSelectedStudentId,
+    settings,
+    showToast,
   } = useApp();
 
   const [isAddingAssessment, setIsAddingAssessment] = useState(false);
   const [newAssName, setNewAssName] = useState('');
   const [newAssMax, setNewAssMax] = useState('10');
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
+  const activeClass = classes.find((c) => c.id === selectedClassId) || classes[0];
   const classStudents = students.filter((s) => s.classId === selectedClassId);
+
+  const handleExportGradesPDF = async () => {
+    if (!activeClass) return;
+    setIsExportingPDF(true);
+    showToast('جاري إنشاء تقرير كشف الدرجات PDF...', 'info');
+    try {
+      await generateGradesPDFReport(
+        activeClass,
+        classStudents,
+        assessments,
+        grades,
+        settings
+      );
+      showToast('تم تحميل تقرير كشف الدرجات PDF بنجاح 📄', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('حدث خطأ أثناء إنشاء التقرير', 'error');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const handleCreateAssessment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,17 +87,29 @@ export const GradesView: React.FC = () => {
           </select>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic(20);
-            setIsAddingAssessment(!isAddingAssessment);
-          }}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>إضافة بند تقييم</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportGradesPDF}
+            disabled={isExportingPDF}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>{isExportingPDF ? 'جاري التحميل...' : 'تقرير الدرجات PDF'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(20);
+              setIsAddingAssessment(!isAddingAssessment);
+            }}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>إضافة بند تقييم</span>
+          </button>
+        </div>
       </div>
 
       {/* Add Assessment Inline Form */}

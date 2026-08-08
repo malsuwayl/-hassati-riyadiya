@@ -1059,3 +1059,155 @@ export const generateStatisticsPDFReport = async (
   await renderContainerToPDF(container, `تقرير_إحصائيات_${className.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
 };
 
+/**
+ * 7. ACADEMIC GRADES & ASSESSMENTS PDF REPORT (تقرير كشف الدرجات واختبارات التقييم)
+ */
+export const generateGradesPDFReport = async (
+  classItem: ClassItem,
+  classStudents: Student[],
+  assessments: AssessmentItem[],
+  grades: Record<string, Record<string, number>>,
+  settings: TeacherSettings
+) => {
+  const container = document.createElement('div');
+  container.style.padding = '32px';
+
+  const totalMaxScore = assessments.reduce((sum, a) => sum + a.maxScore, 0);
+
+  let totalScoresSum = 0;
+  let highestScore = 0;
+  let excellentStudentsCount = 0;
+
+  // Build assessment header columns
+  const assessmentHeadersHTML = assessments
+    .map(
+      (ass) => `
+    <th style="padding: 8px; border: 1px solid #047857; text-align: center; font-size: 10px; min-width: 60px;">
+      ${ass.name}<br/>
+      <span style="font-weight: 600; font-size: 9px; opacity: 0.9;">(${ass.maxScore})</span>
+    </th>
+  `
+    )
+    .join('');
+
+  const rows = classStudents.map((student, idx) => {
+    const studentScores = grades[student.id] || {};
+    let studentTotal = 0;
+
+    const itemScoresHTML = assessments
+      .map((ass) => {
+        const score = studentScores[ass.id];
+        if (score !== undefined && !isNaN(score)) {
+          studentTotal += score;
+          return `
+            <td style="padding: 6px; border: 1px solid #e4e4e7; text-align: center; font-size: 11px; font-weight: 800; color: #18181b;">
+              ${score}
+            </td>
+          `;
+        }
+        return `
+          <td style="padding: 6px; border: 1px solid #e4e4e7; text-align: center; font-size: 11px; font-weight: 600; color: #a1a1aa;">
+            -
+          </td>
+        `;
+      })
+      .join('');
+
+    totalScoresSum += studentTotal;
+    if (studentTotal > highestScore) highestScore = studentTotal;
+
+    const pct = totalMaxScore > 0 ? Math.round((studentTotal / totalMaxScore) * 100) : 0;
+    if (pct >= 90) excellentStudentsCount++;
+
+    let gradeLevel = 'يحتاج تحسين';
+    let gradeBadgeStyle = 'background: #fee2e2; color: #991b1b;';
+    if (pct >= 90) {
+      gradeLevel = 'ممتاز';
+      gradeBadgeStyle = 'background: #dcfce7; color: #166534;';
+    } else if (pct >= 80) {
+      gradeLevel = 'جيد جداً';
+      gradeBadgeStyle = 'background: #e0f2fe; color: #0369a1;';
+    } else if (pct >= 70) {
+      gradeLevel = 'جيد';
+      gradeBadgeStyle = 'background: #fef9c3; color: #854d0e;';
+    } else if (pct >= 60) {
+      gradeLevel = 'مقبول';
+      gradeBadgeStyle = 'background: #ffedd5; color: #9a3412;';
+    }
+
+    return `
+      <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'}; font-weight: 700; font-size: 11px;">
+        <td style="padding: 8px; border: 1px solid #e4e4e7; text-align: center; color: #71717a;">${idx + 1}</td>
+        <td style="padding: 8px; border: 1px solid #e4e4e7; text-align: right; font-weight: 900; color: #18181b;">${student.name}</td>
+        ${itemScoresHTML}
+        <td style="padding: 8px; border: 1px solid #e4e4e7; text-align: center; font-weight: 900; color: #047857; background: #f0fdf4;">
+          ${studentTotal} / ${totalMaxScore}
+        </td>
+        <td style="padding: 8px; border: 1px solid #e4e4e7; text-align: center; font-weight: 900; color: #1d4ed8;">
+          ${pct}%
+        </td>
+        <td style="padding: 8px; border: 1px solid #e4e4e7; text-align: center;">
+          <span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 900; ${gradeBadgeStyle}">
+            ${gradeLevel}
+          </span>
+        </td>
+      </tr>
+    `;
+  });
+
+  const classAvg = classStudents.length > 0 ? (totalScoresSum / classStudents.length).toFixed(1) : '0';
+  const classAvgPct = totalMaxScore > 0 && classStudents.length > 0 ? Math.round((totalScoresSum / (classStudents.length * totalMaxScore)) * 100) : 0;
+
+  const html = `
+    ${buildReportHeaderHTML(
+      'كشف درجات واختبارات التقويم المهارية والتحصيلية',
+      `كشف الدرجات التفصيلي لفصل: ${classItem.name}`,
+      classItem.name,
+      settings
+    )}
+
+    <!-- KPI Summary Row -->
+    <div style="display: flex; gap: 12px; margin-bottom: 20px; text-align: center;">
+      <div style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #166534; display: block;">متوسط درجات الفصل</span>
+        <strong style="font-size: 18px; color: #065f46; font-weight: 900;">${classAvg} / ${totalMaxScore} (${classAvgPct}%)</strong>
+      </div>
+      <div style="flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #1e40af; display: block;">أعلى درجة مرصودة</span>
+        <strong style="font-size: 18px; color: #1d4ed8; font-weight: 900;">${highestScore} / ${totalMaxScore}</strong>
+      </div>
+      <div style="flex: 1; background: #fefce8; border: 1px solid #fef08a; padding: 12px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #854d0e; display: block;">الطلاب المتفوقون (≥90%) 🏆</span>
+        <strong style="font-size: 18px; color: #ca8a04; font-weight: 900;">${excellentStudentsCount} طالب</strong>
+      </div>
+      <div style="flex: 1; background: #faf5ff; border: 1px solid #e9d5ff; padding: 12px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #6b21a8; display: block;">عدد بنود التقييم</span>
+        <strong style="font-size: 18px; color: #7e22ce; font-weight: 900;">${assessments.length} بنود</strong>
+      </div>
+    </div>
+
+    <!-- Main Grades Table -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+      <thead>
+        <tr style="background-color: #065f46; color: #ffffff; font-weight: 900; font-size: 11px;">
+          <th style="padding: 10px; border: 1px solid #047857; width: 35px; text-align: center;">#</th>
+          <th style="padding: 10px; border: 1px solid #047857; text-align: right; min-width: 140px;">اسم الطالب</th>
+          ${assessmentHeadersHTML}
+          <th style="padding: 10px; border: 1px solid #047857; text-align: center; width: 80px;">المجموع</th>
+          <th style="padding: 10px; border: 1px solid #047857; text-align: center; width: 60px;">النسبة</th>
+          <th style="padding: 10px; border: 1px solid #047857; text-align: center; width: 80px;">التقدير</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.join('')}
+      </tbody>
+    </table>
+
+    ${buildReportFooterHTML(settings.teacherName)}
+  `;
+
+  container.innerHTML = html;
+  await renderContainerToPDF(container, `كشف_الدرجات_${classItem.name}_${new Date().toISOString().slice(0, 10)}.pdf`);
+};
+
+

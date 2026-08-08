@@ -18,6 +18,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInAnonymously,
   firebaseSignOut,
   onAuthStateChanged,
   doc,
@@ -65,6 +66,7 @@ interface AppContextType {
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string) => Promise<void>;
+  loginAnonymously: () => Promise<void>;
   logoutUser: () => Promise<void>;
 
   selectedClassId: string;
@@ -231,6 +233,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const registerWithEmail = async (email: string, pass: string) => {
     await createUserWithEmailAndPassword(auth, email, pass);
+  };
+
+  const loginAnonymously = async () => {
+    await signInAnonymously(auth);
   };
 
   const logoutUser = async () => {
@@ -1061,6 +1067,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginWithGoogle,
         loginWithEmail,
         registerWithEmail,
+        loginAnonymously,
         logoutUser,
       }}
     >

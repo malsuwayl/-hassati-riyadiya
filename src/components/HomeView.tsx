@@ -1,17 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ActiveTab } from '../types';
+import {
+  Calendar,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  ArrowLeft,
+  CheckCircle2,
+  CalendarDays,
+  Settings,
+  Bell,
+  Volume2,
+} from 'lucide-react';
+import { triggerFullPeriodAlert } from '../utils/notificationSound';
 
 export const HomeView: React.FC = () => {
   const {
     settings,
     selectedDate,
     classes,
+    students,
     timetable,
     setSelectedClassId,
     setActiveTab,
     triggerHaptic,
   } = useApp();
+
+  const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
+  const [selectedEntryIndex, setSelectedEntryIndex] = useState(0);
 
   const todayDateObj = new Date(selectedDate);
   const dayIndex = todayDateObj.getDay();
@@ -28,26 +45,35 @@ export const HomeView: React.FC = () => {
     month: 'long',
   });
 
-  // Today's timetable entries
+  // Today's timetable entries (sorted by period number)
   const todayEntries = timetable
     .filter((t) => t.dayOfWeek === dayIndex)
     .sort((a, b) => a.periodNumber - b.periodNumber);
 
-  const currentEntry = todayEntries.length > 0 ? todayEntries[0] : null;
-  const currentClass = currentEntry
-    ? classes.find((c) => c.id === currentEntry.classId)
+  // Active selected entry based on teacher click or default to first
+  const activeEntry = todayEntries.length > 0
+    ? (todayEntries[selectedEntryIndex] || todayEntries[0])
+    : null;
+
+  const activeClass = activeEntry
+    ? classes.find((c) => c.id === activeEntry.classId)
     : classes[0];
 
-  const currentLessonName = currentEntry
-    ? `الحصة ${currentEntry.periodNumber}`
+  const currentLessonName = activeEntry
+    ? `الحصة ${activeEntry.periodNumber}`
     : 'الحصة الأولى';
 
-  const currentClassName = currentClass ? currentClass.name : 'لم يحدد الفصل';
+  const currentClassName = activeClass ? activeClass.name : 'لم يحدد الفصل';
+  const activeClassStudentCount = activeClass
+    ? students.filter((s) => s.classId === activeClass.id).length
+    : 0;
 
-  const handleStartAttendance = () => {
+  const handleStartAttendanceForClass = (classId?: string) => {
     triggerHaptic(50);
-    if (currentClass) {
-      setSelectedClassId(currentClass.id);
+    if (classId) {
+      setSelectedClassId(classId);
+    } else if (activeClass) {
+      setSelectedClassId(activeClass.id);
     }
     setActiveTab('attendance');
   };
@@ -113,7 +139,7 @@ export const HomeView: React.FC = () => {
   return (
     <div className="max-w-md mx-auto px-2 py-4 font-sans space-y-4">
       {/* Top Header Information Card */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs text-right space-y-3">
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs text-right space-y-3.5">
         <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
           <div>
             <h2 className="text-base font-black text-slate-900">
@@ -123,34 +149,215 @@ export const HomeView: React.FC = () => {
               {settings.teacherName || 'معلم المادة'}
             </p>
           </div>
-          <div className="text-left">
-            <span className="text-xs font-black text-indigo-900 bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-100 block">
-              {formattedHijri}
-            </span>
-            <span className="text-[10px] font-bold text-slate-400 block mt-0.5">
+          <div className="text-left flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(50);
+                  triggerFullPeriodAlert(
+                    '🔔 جرس الحصة الدراسي',
+                    `تنبيه جرس الحصة: ${currentLessonName} - ${currentClassName}`,
+                    'start',
+                    {
+                      enableSound: settings.notifications?.enableSound ?? true,
+                      enableTTS: settings.notifications?.enableTTS ?? true,
+                      enableBrowser: settings.notifications?.enableBrowserNotifications ?? true,
+                    }
+                  );
+                }}
+                className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200/80 transition-all cursor-pointer"
+                title="قرع جرس الحصة الآن"
+              >
+                <Bell className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-xs font-black text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100 block">
+                {formattedHijri}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 block">
               {formattedGregorian}
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 pt-1 text-right">
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60">
-            <span className="text-[10px] font-extrabold text-slate-400 block">الحصة الحالية</span>
-            <span className="text-sm font-black text-slate-900">{currentLessonName}</span>
+        {/* Current Session Header with Today's Schedule Toggle Arrow */}
+        <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-200/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-extrabold text-slate-700">
+              <Clock className="w-4 h-4 text-indigo-600" />
+              <span>حصص اليوم ({todayEntries.length})</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(20);
+                setIsScheduleExpanded(!isScheduleExpanded);
+              }}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200/80 flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <span>{isScheduleExpanded ? 'إخفاء جدول اليوم' : 'عرض جدول اليوم'}</span>
+              {isScheduleExpanded ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
           </div>
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60">
-            <span className="text-[10px] font-extrabold text-slate-400 block">الفصل المستهدف</span>
-            <span className="text-sm font-black text-indigo-700">{currentClassName}</span>
-          </div>
+
+          {/* Today's Classes Horizontal Quick Chips with Arrow Indicator */}
+          {todayEntries.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {todayEntries.map((entry, idx) => {
+                  const entryClass = classes.find((c) => c.id === entry.classId);
+                  const isSelected = idx === selectedEntryIndex;
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(30);
+                        setSelectedEntryIndex(idx);
+                        if (entryClass) {
+                          setSelectedClassId(entryClass.id);
+                        }
+                      }}
+                      className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 border cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>الحصة {entry.periodNumber}</span>
+                      <span className={isSelected ? 'text-indigo-200 font-normal' : 'text-slate-400 font-normal'}>•</span>
+                      <span>{entryClass ? entryClass.name : 'فصل غير محدد'}</span>
+                      {isSelected && <ArrowLeft className="w-3 h-3 text-white animate-pulse" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active Current Class Box */}
+              <div className="grid grid-cols-2 gap-2.5 pt-1 text-right">
+                <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-[10px] font-extrabold text-slate-400 block">الحصة المحددة</span>
+                  <span className="text-sm font-black text-slate-900">{currentLessonName}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-[10px] font-extrabold text-slate-400 block">الفصل المستهدف</span>
+                  <span className="text-sm font-black text-indigo-700 truncate block">
+                    {currentClassName} ({activeClassStudentCount} طالب)
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-3 rounded-xl border border-amber-200/80 text-right space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-amber-900">لا توجد حصص مسجلة بالجدول اليوم</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className="text-[11px] font-black text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Settings className="w-3 h-3" />
+                  <span>ضبط الجدول</span>
+                </button>
+              </div>
+              <p className="text-[11px] font-semibold text-slate-500">
+                يمكنك اختيار الفصل يدوياً لبدء التحضير فوراً:
+              </p>
+              <select
+                value={activeClass ? activeClass.id : ''}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 text-xs font-extrabold rounded-xl p-2 outline-none"
+              >
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Detailed Timetable Drawer (Expanded view when clicking arrow) */}
+          {isScheduleExpanded && todayEntries.length > 0 && (
+            <div className="pt-2 border-t border-slate-200/80 space-y-2 animate-fadeIn">
+              <div className="flex items-center justify-between text-[11px] font-black text-slate-500 pb-1">
+                <span>قائمة حصص اليوم الكاملة ({formattedGregorian})</span>
+                <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                {todayEntries.map((entry, idx) => {
+                  const entryClass = classes.find((c) => c.id === entry.classId);
+                  const isSelected = idx === selectedEntryIndex;
+                  const stCount = entryClass
+                    ? students.filter((s) => s.classId === entryClass.id).length
+                    : 0;
+
+                  return (
+                    <div
+                      key={entry.id}
+                      onClick={() => {
+                        triggerHaptic(20);
+                        setSelectedEntryIndex(idx);
+                        if (entryClass) setSelectedClassId(entryClass.id);
+                      }}
+                      className={`p-2.5 rounded-xl border text-xs flex items-center justify-between transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-50/90 border-indigo-300 font-extrabold text-indigo-950 shadow-2xs'
+                          : 'bg-white border-slate-200/80 font-bold text-slate-700 hover:bg-slate-100/70'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white text-[11px] font-black flex items-center justify-center">
+                          {entry.periodNumber}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black">{entryClass ? entryClass.name : 'غير محدد'}</span>
+                            {isSelected && (
+                              <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">
+                                الحصة الحالية
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            عدد الطلاب: {stCount}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (entryClass) handleStartAttendanceForClass(entryClass.id);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <span>تحضير</span>
+                        <ArrowLeft className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Large Primary Action Button */}
         <button
           type="button"
-          onClick={handleStartAttendance}
+          onClick={() => handleStartAttendanceForClass()}
           className="w-full mt-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-base flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
         >
-          <span>ابدأ تحضير الحصة الآن ⏱️</span>
+          <span>ابدأ تحضير {currentClassName} الآن ⏱️</span>
         </button>
       </div>
 
@@ -179,5 +386,6 @@ export const HomeView: React.FC = () => {
     </div>
   );
 };
+
 
 

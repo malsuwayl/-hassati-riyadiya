@@ -12,9 +12,13 @@ import { StudentsView } from './components/StudentsView';
 import { SettingsView } from './components/SettingsView';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { AuthModal } from './components/AuthModal';
+import { usePeriodNotifier } from './hooks/usePeriodNotifier';
 
 const MainContent: React.FC = () => {
-  const { activeTab, isAuthModalOpen, setIsAuthModalOpen } = useApp();
+  const { activeTab, isAuthModalOpen, setIsAuthModalOpen, timetable, classes, settings, showToast } = useApp();
+
+  // Run periodic class bell and notification checker
+  usePeriodNotifier(timetable, classes, settings, showToast);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-28 sm:pb-24 font-sans selection:bg-indigo-100 selection:text-indigo-900">

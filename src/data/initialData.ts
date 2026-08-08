@@ -5,6 +5,8 @@ import {
   MeasurementItem,
   TimetableEntry,
   TeacherSettings,
+  PeriodTimeConfig,
+  NotificationSettings,
 } from '../types';
 
 export function getTodayDateString(): string {
@@ -15,9 +17,33 @@ export function getTodayDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  enableAlerts: true,
+  preClassMinutes: 5,
+  enablePreClassAlert: true,
+  enableClassStartBell: true,
+  enablePreEndAlert: true,
+  enableClassEndBell: true,
+  enableSound: true,
+  enableTTS: true,
+  enableBrowserNotifications: true,
+};
+
+export const DEFAULT_PERIOD_TIMES: PeriodTimeConfig[] = [
+  { periodNumber: 1, startTime: '07:00', endTime: '07:45' },
+  { periodNumber: 2, startTime: '07:50', endTime: '08:35' },
+  { periodNumber: 3, startTime: '08:40', endTime: '09:25' },
+  { periodNumber: 4, startTime: '09:55', endTime: '10:40' },
+  { periodNumber: 5, startTime: '10:45', endTime: '11:30' },
+  { periodNumber: 6, startTime: '11:35', endTime: '12:20' },
+  { periodNumber: 7, startTime: '12:25', endTime: '13:10' },
+];
+
 export const DEFAULT_TEACHER_SETTINGS: TeacherSettings = {
   schoolName: 'مدرسة الأمل الثانوية',
   teacherName: 'أ. محمد القحطاني',
+  periodTimes: DEFAULT_PERIOD_TIMES,
+  notifications: DEFAULT_NOTIFICATION_SETTINGS,
 };
 
 export const SAMPLE_DEMO_CLASSES: ClassItem[] = [

@@ -93,10 +93,30 @@ export interface MeasurementItem {
   gradingRanges?: GradingRange[];
 }
 
+export interface PeriodTimeConfig {
+  periodNumber: number;
+  startTime: string; // e.g., "07:00"
+  endTime: string; // e.g., "07:45"
+}
+
+export interface NotificationSettings {
+  enableAlerts: boolean; // General switch
+  preClassMinutes: number; // e.g., 5 mins before
+  enablePreClassAlert: boolean; // Pre-class reminder
+  enableClassStartBell: boolean; // Start bell
+  enablePreEndAlert: boolean; // Pre-end reminder (5 mins before end)
+  enableClassEndBell: boolean; // End bell
+  enableSound: boolean; // Play school bell sound
+  enableTTS: boolean; // Speak Arabic announcement
+  enableBrowserNotifications: boolean; // Native device push popup
+}
+
 export interface TeacherSettings {
   schoolName: string;
   teacherName: string;
   schoolLogo?: string;
+  periodTimes?: PeriodTimeConfig[];
+  notifications?: NotificationSettings;
 }
 
 export type ActiveTab =
