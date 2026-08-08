@@ -71,7 +71,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       showToast('تم تسجيل الدخول بواسطة حساب Google بنجاح ☁️', 'success');
       onClose();
     } catch (err: any) {
-      console.error(err);
+      console.error('Google Sign In Error:', err);
       if (
         err?.name === 'AbortError' ||
         err?.code === 'auth/popup-closed-by-user' ||
@@ -80,7 +80,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       ) {
         return;
       }
-      setErrorMsg(err.message || 'فشل تسجيل الدخول باستخدام Google');
+      if (
+        err?.code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('operation-not-allowed')
+      ) {
+        setErrorMsg('تسجيل الدخول بـ Google يتطلب تفعيل موفّر Google في وحدة تحكم Firebase (Console). يمكنك الضغط على "تفعيل المزامنة السحابية المباشرة" أدناه للحفظ الفوري بحساب سحابي تلقائي.');
+      } else if (
+        err?.code === 'auth/unauthorized-domain' ||
+        err?.message?.includes('unauthorized-domain')
+      ) {
+        setErrorMsg('هذا النطاق غير مضاف للنطاقات المصرح بها في Firebase. استخدم زر "المزامنة المباشرة" للحفظ التلقائي.');
+      } else if (err?.code === 'auth/popup-blocked') {
+        setErrorMsg('تم حظر النافذة المنبثقة من قِبل المتصفح. يرجى السماح بالنوافذ المنبثقة أو استخدام زر المزامنة المباشرة.');
+      } else if (err?.code === 'auth/account-exists-with-different-credential') {
+        setErrorMsg('الحساب موجود مسبقاً بأسلوب دخول آخر. يرجى تسجيل الدخول بالبريد الإلكتروني وكلمة المرور.');
+      } else {
+        setErrorMsg(err?.message || 'فشل تسجيل الدخول باستخدام Google. يمكنك استخدام زر "تفعيل المزامنة المباشرة" أدناه.');
+      }
     } finally {
       setIsSubmitting(false);
     }
