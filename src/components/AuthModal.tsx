@@ -182,9 +182,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
             {/* Error Message */}
             {errorMsg && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{errorMsg}</span>
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3.5 rounded-2xl text-xs font-bold space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                  <span className="leading-relaxed">{errorMsg}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAnonymousSignIn}
+                  disabled={isSubmitting}
+                  className="w-full mt-1 bg-amber-600 hover:bg-amber-700 text-white font-black py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>تفعيل المزامنة السحابية المباشرة فوراً (بدون مشاكل دخول)</span>
+                </button>
               </div>
             )}
 
