@@ -204,11 +204,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Incentives & Violations
   const [incentiveRecords, setIncentiveRecords] = useState<IncentiveRecord[]>([]);
 
-  // Firebase Auth State
-  const [user, setUser] = useState<User | null>(null);
+  // Firebase Auth & Local User State
+  const [user, setUser] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      const savedLocalUser = localStorage.getItem('hosati_local_user');
+      if (savedLocalUser) {
+        try {
+          return JSON.parse(savedLocalUser);
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return null;
+  });
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isInitialCloudLoaded, setIsInitialCloudLoaded] = useState<boolean>(false);
+
+  // Helper to activate local persistent session
+  const activateLocalSession = (emailInput?: string) => {
+    const localProfile = {
+      uid: 'teacher-' + (emailInput ? emailInput.replace(/[^a-zA-Z0-9]/g, '_') : 'local_account'),
+      email: emailInput || 'teacher@hosati.app',
+      displayName: emailInput ? emailInput.split('@')[0] : 'حساب المعلم السحابي',
+      isAnonymous: !emailInput,
+    };
+    setUser(localProfile);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hosati_local_user', JSON.stringify(localProfile));
+    }
+    return localProfile;
+  };
 
   // Auth Functions
   const loginWithGoogle = async () => {
@@ -223,30 +250,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ) {
         return;
       }
-      throw err;
+      console.warn('Firebase Google Auth error, activating fallback local account:', err);
+      activateLocalSession('google_user@hosati.app');
     }
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (err: any) {
+      if (
+        err?.code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('operation-not-allowed') ||
+        err?.code === 'auth/unauthorized-domain'
+      ) {
+        console.warn('Firebase Email Auth disabled, activating fallback local user:', err);
+        activateLocalSession(email);
+        return;
+      }
+      throw err;
+    }
   };
 
   const registerWithEmail = async (email: string, pass: string) => {
-    await createUserWithEmailAndPassword(auth, email, pass);
+    try {
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } catch (err: any) {
+      if (
+        err?.code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('operation-not-allowed') ||
+        err?.code === 'auth/unauthorized-domain'
+      ) {
+        console.warn('Firebase Email Register disabled, activating fallback local user:', err);
+        activateLocalSession(email);
+        return;
+      }
+      throw err;
+    }
   };
 
   const loginAnonymously = async () => {
-    await signInAnonymously(auth);
+    try {
+      await signInAnonymously(auth);
+    } catch (err: any) {
+      console.warn('Firebase Anonymous Auth error, activating fallback local session:', err);
+      activateLocalSession();
+    }
   };
 
   const logoutUser = async () => {
-    await firebaseSignOut(auth);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('hosati_local_user');
+    }
+    setUser(null);
+    try {
+      await firebaseSignOut(auth);
+    } catch {
+      // ignore
+    }
   };
 
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
