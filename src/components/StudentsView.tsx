@@ -14,6 +14,7 @@ import {
   FileText,
   X,
   ChevronLeft,
+  Fingerprint,
 } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
 import { exportToExcel } from '../utils/fileImportExport';
@@ -41,6 +42,7 @@ export const StudentsView: React.FC = () => {
     settings,
     showToast,
     triggerHaptic,
+    setIsFingerprintModalOpen,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'students' | 'classes'>('students');
@@ -106,6 +108,7 @@ export const StudentsView: React.FC = () => {
   const [formName, setFormName] = useState('');
   const [formClassId, setFormClassId] = useState('');
   const [formNationalId, setFormNationalId] = useState('');
+  const [formFingerprintId, setFormFingerprintId] = useState('');
   const [formMedicalNotes, setFormMedicalNotes] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formTeacherNotes, setFormTeacherNotes] = useState('');
@@ -147,6 +150,7 @@ export const StudentsView: React.FC = () => {
     setFormName('');
     setFormClassId(selectedClassId || classes[0]?.id || '');
     setFormNationalId('');
+    setFormFingerprintId('');
     setFormMedicalNotes('');
     setFormPhone('');
     setFormTeacherNotes('');
@@ -159,6 +163,7 @@ export const StudentsView: React.FC = () => {
     setFormName(st.name);
     setFormClassId(st.classId);
     setFormNationalId(st.nationalId || '');
+    setFormFingerprintId(st.fingerprintId || '');
     setFormMedicalNotes(st.medicalNotes || '');
     setFormPhone(st.phone || '');
     setFormTeacherNotes(st.teacherNotes || '');
@@ -174,6 +179,7 @@ export const StudentsView: React.FC = () => {
         name: formName.trim(),
         classId: formClassId,
         nationalId: formNationalId.trim(),
+        fingerprintId: formFingerprintId.trim() || undefined,
         medicalNotes: formMedicalNotes.trim(),
         phone: formPhone.trim(),
         teacherNotes: formTeacherNotes.trim(),
@@ -183,6 +189,7 @@ export const StudentsView: React.FC = () => {
         name: formName.trim(),
         classId: formClassId,
         nationalId: formNationalId.trim(),
+        fingerprintId: formFingerprintId.trim() || undefined,
         medicalNotes: formMedicalNotes.trim(),
         phone: formPhone.trim(),
         teacherNotes: formTeacherNotes.trim(),
@@ -316,6 +323,16 @@ export const StudentsView: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => setIsFingerprintModalOpen(true)}
+                  className="bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200/80 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-2xs"
+                  title="إدارة واستيراد أجهزة البصمة والتحضير"
+                >
+                  <Fingerprint className="w-3.5 h-3.5 text-teal-700" />
+                  <span>جهاز البصمة 🖲️</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleExportPDF}
                   disabled={isExportingPDF}
                   className="bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border border-indigo-200/80 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-2xs disabled:opacity-50"
@@ -384,6 +401,12 @@ export const StudentsView: React.FC = () => {
                           <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-2 py-0.2 rounded">
                             {cls?.name || 'فصل مجهول'}
                           </span>
+                          {st.fingerprintId && (
+                            <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200/80 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                              <Fingerprint className="w-2.5 h-2.5" />
+                              {st.fingerprintId}
+                            </span>
+                          )}
                           {st.medicalNotes && (
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
                               ⚠️ {st.medicalNotes}
@@ -552,7 +575,7 @@ export const StudentsView: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <label className="text-[11px] font-extrabold text-zinc-700 block mb-1">
                     رقم الهوية / الإقامة
@@ -563,6 +586,20 @@ export const StudentsView: React.FC = () => {
                     onChange={(e) => setFormNationalId(e.target.value)}
                     placeholder="10XXXXXXXX"
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-extrabold text-teal-800 block mb-1 flex items-center gap-1">
+                    <Fingerprint className="w-3 h-3 text-teal-600" />
+                    رقم البصمة (PIN)
+                  </label>
+                  <input
+                    type="text"
+                    value={formFingerprintId}
+                    onChange={(e) => setFormFingerprintId(e.target.value)}
+                    placeholder="مثال: 101"
+                    className="w-full bg-teal-50/50 border border-teal-200 rounded-lg px-3 py-1.5 text-xs font-bold text-teal-950 outline-none focus:border-teal-500"
                   />
                 </div>
 

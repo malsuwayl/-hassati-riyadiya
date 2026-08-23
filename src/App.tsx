@@ -12,6 +12,7 @@ import { StudentsView } from './components/StudentsView';
 import { SettingsView } from './components/SettingsView';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { AuthModal } from './components/AuthModal';
+import { FingerprintModal } from './components/FingerprintModal';
 import { usePeriodNotifier } from './hooks/usePeriodNotifier';
 
 const MainContent: React.FC = () => {
@@ -37,6 +38,7 @@ const MainContent: React.FC = () => {
 
       <StudentProfileModal />
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <FingerprintModal />
       <BottomNav />
       <Toast />
     </div>

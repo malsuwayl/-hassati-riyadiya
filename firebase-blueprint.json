@@ -1,7 +1,7 @@
 {
   "entities": {
     "users": {
-      "title": "Users",
+      "title": "User Profile",
       "description": "User profile information",
       "type": "object",
       "properties": {
@@ -12,18 +12,36 @@
       "required": ["email"]
     },
     "user_data": {
-      "title": "Teacher Data Store",
-      "description": "Per-user application data including classes, students, grades, logs",
+      "title": "Teacher Isolated Workspace",
+      "description": "Per-user private application data including classes, students, grades, attendance, logs, and biometric devices",
       "type": "object",
       "properties": {
+        "userId": { "type": "string" },
         "classes": { "type": "array" },
         "students": { "type": "array" },
         "dailyLogs": { "type": "array" },
-        "gradeRecords": { "type": "array" },
+        "gradeRecords": { "type": "object" },
         "assessments": { "type": "array" },
-        "attendanceCheckItems": { "type": "array text" },
+        "measurementItems": { "type": "array" },
+        "measurementValues": { "type": "object" },
+        "attendanceCheckItems": { "type": "array" },
+        "incentiveRecords": { "type": "array" },
+        "timetable": { "type": "array" },
+        "settings": { "type": "object" },
+        "fingerprintDevices": { "type": "array" },
         "updatedAt": { "type": "string" }
       }
     }
+  },
+  "firestore": {
+    "/user_data/{userId}": {
+      "schema": "user_data",
+      "description": "Private isolated teacher workspace document strictly accessed only by the owning teacher"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Private user account profile document"
+    }
   }
 }
+

@@ -1,15 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /user_data/{userId} {
-      allow read, write: if true;
-    }
-    match /users/{userId} {
-      allow read, write: if true;
-    }
+    // Default Deny all unspecified access
     match /{document=**} {
-      allow read, write: if request.auth != null || true;
+      allow read, write: if false;
+    }
+
+    // Per-user isolated workspace data
+    // Each teacher can only read, write, update and delete their own private document
+    match /user_data/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Per-user profile information
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
+
 

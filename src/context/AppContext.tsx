@@ -11,6 +11,8 @@ import {
   MeasurementItem,
   TimetableEntry,
   TeacherSettings,
+  FingerprintDevice,
+  FingerprintLogRecord,
 } from '../types';
 import {
   auth,
@@ -99,10 +101,24 @@ interface AppContextType {
     studentNumber: string;
     name: string;
     className: string;
+    fingerprintId?: string;
     height?: number | string;
     weight?: number | string;
     medicalNotes?: string;
   }>) => void;
+
+  // Fingerprint & Biometric Devices
+  fingerprintDevices: FingerprintDevice[];
+  isFingerprintModalOpen: boolean;
+  setIsFingerprintModalOpen: (open: boolean) => void;
+  addFingerprintDevice: (device: Omit<FingerprintDevice, 'id'>) => void;
+  updateFingerprintDevice: (id: string, updates: Partial<FingerprintDevice>) => void;
+  deleteFingerprintDevice: (id: string) => void;
+  applyFingerprintAttendanceLogs: (
+    logs: FingerprintLogRecord[],
+    targetDate: string,
+    targetClassId?: string
+  ) => { updatedCount: number; presentCount: number; lateCount: number };
 
   // Attendance actions
   attendanceCheckItems: AttendanceCheckItem[];
@@ -225,7 +241,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Helper to activate local persistent session
   const activateLocalSession = (emailInput?: string) => {
     const localProfile = {
-      uid: 'teacher-' + (emailInput ? emailInput.replace(/[^a-zA-Z0-9]/g, '_') : 'local_account'),
+      uid: 'teacher_' + (emailInput ? emailInput.replace(/[^a-zA-Z0-9]/g, '_') : 'guest_account'),
       email: emailInput || 'teacher@hosati.app',
       displayName: emailInput ? emailInput.split('@')[0] : 'حساب المعلم السحابي',
       isAnonymous: !emailInput,
@@ -303,6 +319,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.removeItem('hosati_local_user');
     }
     setUser(null);
+    setClasses([]);
+    setStudents([]);
+    setDailyLogs([]);
+    setGrades({});
+    setMeasurementValues({});
+    setIncentiveRecords([]);
+    setTimetable(DEFAULT_TIMETABLE);
+    setSettings(DEFAULT_TEACHER_SETTINGS);
+    setSelectedClassId('');
+    setSelectedStudentId(null);
+    setIsInitialCloudLoaded(false);
     try {
       await firebaseSignOut(auth);
     } catch {
@@ -334,33 +361,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
-          if (data.classes && data.classes.length > 0) setClasses(data.classes);
-          if (data.students && data.students.length > 0) setStudents(data.students);
-          if (data.dailyLogs) setDailyLogs(data.dailyLogs);
-          if (data.attendanceCheckItems) setAttendanceCheckItems(data.attendanceCheckItems);
-          if (data.assessments) setAssessments(data.assessments);
-          if (data.grades) setGrades(data.grades);
-          if (data.measurementItems) setMeasurementItems(data.measurementItems);
-          if (data.measurementValues) setMeasurementValues(data.measurementValues);
-          if (data.incentiveRecords) setIncentiveRecords(data.incentiveRecords);
-          if (data.timetable) setTimetable(data.timetable);
-          if (data.settings) setSettings(data.settings);
+          setClasses(data.classes || []);
+          setStudents(data.students || []);
+          setDailyLogs(data.dailyLogs || []);
+          setAttendanceCheckItems(data.attendanceCheckItems || DEFAULT_ATTENDANCE_CHECK_ITEMS);
+          setAssessments(data.assessments || DEFAULT_ASSESSMENTS);
+          setGrades(data.grades || {});
+          setMeasurementItems(data.measurementItems || DEFAULT_MEASUREMENT_ITEMS);
+          setMeasurementValues(data.measurementValues || {});
+          setIncentiveRecords(data.incentiveRecords || []);
+          setTimetable(data.timetable || DEFAULT_TIMETABLE);
+          setSettings(data.settings || {
+            ...DEFAULT_TEACHER_SETTINGS,
+            teacherName: user.displayName || user.email?.split('@')[0] || 'معلم المادة',
+          });
+
+          if (data.classes && data.classes.length > 0) {
+            setSelectedClassId((prev) => (data.classes.some((c: any) => c.id === prev) ? prev : data.classes[0].id));
+          }
         } else {
-          // Document does not exist yet in Firestore, create initial baseline from local state
+          // Document does not exist yet in Firestore for this user (brand new account)
+          const newTeacherSettings = {
+            ...DEFAULT_TEACHER_SETTINGS,
+            teacherName: user.displayName || user.email?.split('@')[0] || 'معلم المادة',
+          };
+          setSettings(newTeacherSettings);
+          setClasses([]);
+          setStudents([]);
+          setDailyLogs([]);
+          setGrades({});
+          setMeasurementValues({});
+          setIncentiveRecords([]);
+          setTimetable(DEFAULT_TIMETABLE);
+          setSelectedClassId('');
+          setSelectedStudentId(null);
+
           setDoc(userDocRef, {
-            classes,
-            students,
-            dailyLogs,
-            attendanceCheckItems,
-            assessments,
-            grades,
-            measurementItems,
-            measurementValues,
-            incentiveRecords,
-            timetable,
-            settings,
+            userId: user.uid,
+            classes: [],
+            students: [],
+            dailyLogs: [],
+            attendanceCheckItems: DEFAULT_ATTENDANCE_CHECK_ITEMS,
+            assessments: DEFAULT_ASSESSMENTS,
+            grades: {},
+            measurementItems: DEFAULT_MEASUREMENT_ITEMS,
+            measurementValues: {},
+            incentiveRecords: [],
+            timetable: DEFAULT_TIMETABLE,
+            settings: newTeacherSettings,
             updatedAt: new Date().toISOString(),
-          }).catch((err) => console.error('Error creating Firestore doc:', err));
+          }).catch((err) => console.error('Error creating user initial Firestore doc:', err));
+
+          // Also write user profile record
+          setDoc(doc(db, 'users', user.uid), {
+            email: user.email || '',
+            displayName: user.displayName || '',
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
         }
         setIsInitialCloudLoaded(true);
       },
@@ -380,6 +437,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setDoc(
         userDocRef,
         {
+          userId: user.uid,
           classes,
           students,
           dailyLogs,
@@ -395,7 +453,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
         { merge: true }
       ).catch((err) => console.error('Error syncing to Cloud:', err));
-    }, 1000);
+    }, 800);
 
     return () => clearTimeout(timeout);
   }, [
@@ -600,6 +658,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       studentNumber: string;
       name: string;
       className: string;
+      fingerprintId?: string;
       height?: number | string;
       weight?: number | string;
       medicalNotes?: string;
@@ -652,6 +711,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: r.name.trim(),
         classId: clsId,
         nationalId: r.studentNumber || undefined,
+        fingerprintId: r.fingerprintId || undefined,
         medicalNotes: r.medicalNotes || undefined,
       };
 
@@ -1012,6 +1072,107 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [incentiveRecords]
   );
 
+  // Biometric & Fingerprint state
+  const [isFingerprintModalOpen, setIsFingerprintModalOpen] = useState(false);
+  const fingerprintDevices = settings.fingerprintDevices || [];
+
+  const addFingerprintDevice = (deviceData: Omit<FingerprintDevice, 'id'>) => {
+    const newDev: FingerprintDevice = {
+      ...deviceData,
+      id: `fp-dev-${Date.now()}`,
+      lastSync: 'لم تتم المزامنة بعد',
+    };
+    const currentDevs = settings.fingerprintDevices || [];
+    const updated = [...currentDevs, newDev];
+    updateSettings({ fingerprintDevices: updated });
+    showToast(`تمت إضافة جهاز البصمة "${deviceData.name}" بنجاح! 🖲️`, 'success');
+  };
+
+  const updateFingerprintDevice = (id: string, updates: Partial<FingerprintDevice>) => {
+    const currentDevs = settings.fingerprintDevices || [];
+    const updated = currentDevs.map((d) => (d.id === id ? { ...d, ...updates } : d));
+    updateSettings({ fingerprintDevices: updated });
+    showToast('تم حفظ إعدادات جهاز البصمة', 'success');
+  };
+
+  const deleteFingerprintDevice = (id: string) => {
+    const currentDevs = settings.fingerprintDevices || [];
+    const updated = currentDevs.filter((d) => d.id !== id);
+    updateSettings({ fingerprintDevices: updated });
+    showToast('تم حذف جهاز البصمة', 'info');
+  };
+
+  const applyFingerprintAttendanceLogs = (
+    logs: FingerprintLogRecord[],
+    targetDate: string,
+    targetClassId?: string
+  ): { updatedCount: number; presentCount: number; lateCount: number } => {
+    if (!logs || logs.length === 0) return { updatedCount: 0, presentCount: 0, lateCount: 0 };
+
+    const matchedLogs = logs.filter((l) => l.studentId);
+    const relevantLogs =
+      targetClassId && targetClassId !== 'all'
+        ? matchedLogs.filter((l) => {
+            const st = students.find((s) => s.id === l.studentId);
+            return st && st.classId === targetClassId;
+          })
+        : matchedLogs;
+
+    let updatedCount = 0;
+    let presentCount = 0;
+    let lateCount = 0;
+
+    setDailyLogs((prev) => {
+      let copy = [...prev];
+      relevantLogs.forEach((log) => {
+        if (!log.studentId) return;
+        const st = students.find((s) => s.id === log.studentId);
+        if (!st) return;
+
+        const stClassId = st.classId;
+        const idx = copy.findIndex((l) => l.studentId === log.studentId && l.date === targetDate);
+        const isLate = log.status === 'late';
+        if (isLate) lateCount++;
+        else presentCount++;
+        updatedCount++;
+
+        if (idx >= 0) {
+          copy[idx] = {
+            ...copy[idx],
+            attendance: log.status,
+            uniform: copy[idx].uniform ?? true,
+            notes: copy[idx].notes
+              ? `${copy[idx].notes} | بصمة ${log.time}`
+              : `تم تسجيل الحضور عبر البصمة (${log.time})`,
+            updatedAt: new Date().toISOString(),
+          };
+        } else {
+          copy.push({
+            id: `log-${Date.now()}-${log.studentId}`,
+            studentId: log.studentId,
+            classId: stClassId,
+            date: targetDate,
+            attendance: log.status,
+            uniform: true,
+            notes: `تم تسجيل الحضور عبر البصمة (${log.time})`,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      });
+      return copy;
+    });
+
+    const nowStr = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    updateSettings({
+      fingerprintDevices: (settings.fingerprintDevices || []).map((d) => ({
+        ...d,
+        lastSync: `${targetDate} ${nowStr}`,
+      })),
+    });
+
+    return { updatedCount, presentCount, lateCount };
+  };
+
   // Timetable
   const updateTimetableEntry = (dayOfWeek: number, periodNumber: number, classId: string) => {
     setTimetable((prev) => {
@@ -1127,6 +1288,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         updateSettings,
         restoreData,
+
+        // Fingerprint & Biometric Devices
+        fingerprintDevices,
+        isFingerprintModalOpen,
+        setIsFingerprintModalOpen,
+        addFingerprintDevice,
+        updateFingerprintDevice,
+        deleteFingerprintDevice,
+        applyFingerprintAttendanceLogs,
 
         // Firebase Auth & Cloud Sync
         user,

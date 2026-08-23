@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { AttendanceStatus } from '../types';
-import { Search, CheckCheck, RotateCcw, Plus, Trash2, ListChecks, FileText, StickyNote, X, Edit3 } from 'lucide-react';
+import { Search, CheckCheck, RotateCcw, Plus, Trash2, ListChecks, FileText, StickyNote, X, Edit3, Fingerprint } from 'lucide-react';
 import { generateAttendancePDFReport } from '../utils/pdfExport';
 
 export const AttendanceView: React.FC = () => {
@@ -26,6 +26,7 @@ export const AttendanceView: React.FC = () => {
     showToast,
     triggerHaptic,
     setSelectedStudentId,
+    setIsFingerprintModalOpen,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -202,6 +203,17 @@ export const AttendanceView: React.FC = () => {
           >
             <CheckCheck className="w-4 h-4" />
             <span>حاضر للكل</span>
+          </button>
+
+          <button
+            id="btn-open-fingerprint-attendance"
+            type="button"
+            onClick={() => setIsFingerprintModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs active:scale-95"
+            title="استيراد وتفريغ سجلات جهاز البصمة أو المسح المباشر"
+          >
+            <Fingerprint className="w-4 h-4 text-emerald-200" />
+            <span>جهاز البصمة 🖲️</span>
           </button>
 
           <button

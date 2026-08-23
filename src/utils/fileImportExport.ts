@@ -73,6 +73,7 @@ export function exportToExcel(
       '#': idx + 1,
       'اسم الطالب': s.name,
       'الفصل': cls?.name || '',
+      'رقم البصمة': s.fingerprintId || '',
       'السجل المدني': s.nationalId || '',
       'رقم الجوال': s.phone || '',
       'ملاحظات صحية': s.medicalNotes || '',
@@ -197,6 +198,7 @@ export interface ParsedStudentRow {
   studentNumber: string;
   name: string;
   className: string;
+  fingerprintId?: string;
   height?: number | string;
   weight?: number | string;
   medicalNotes?: string;

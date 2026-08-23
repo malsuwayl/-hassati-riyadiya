@@ -157,9 +157,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         ) : (
           /* Login or Register Form */
           <div className="space-y-4">
-            <p className="text-xs text-slate-600 font-bold leading-relaxed">
-              سجّل دخولك بحسابك الخاص لحفظ وتزامن بيانات الطلاب والفصول والتحضير والدرجات بين أجهزتك تلقائياً وبأمان تام.
-            </p>
+            <div className="bg-indigo-50/80 border border-indigo-200/80 rounded-2xl p-3.5 space-y-1.5">
+              <div className="flex items-center gap-2 text-indigo-950 font-black text-xs">
+                <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span>عزل كامل ومستقل للبيانات 🔒</span>
+              </div>
+              <p className="text-[11px] text-indigo-900 font-semibold leading-relaxed">
+                كل مستخدم يملك مساحة سحابية خاصة ومحمية. لن يتمكن أي شخص أو معلم آخر من رؤية أو تعديل بيانات طلابك أو فصولك أو درجاتك إطلاقاً.
+              </p>
+            </div>
 
             {/* Error Message */}
             {errorMsg && (
@@ -168,15 +174,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
                   <span className="leading-relaxed">{errorMsg}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAnonymousSignIn}
-                  disabled={isSubmitting}
-                  className="w-full mt-1 bg-amber-600 hover:bg-amber-700 text-white font-black py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>تفعيل المزامنة السحابية المباشرة فوراً (بدون مشاكل دخول)</span>
-                </button>
               </div>
             )}
 

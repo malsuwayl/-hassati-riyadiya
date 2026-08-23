@@ -19,6 +19,8 @@ import {
   ThumbsUp,
   AlertTriangle,
   Download,
+  Fingerprint,
+  Edit2,
 } from 'lucide-react';
 
 export const StudentProfileModal: React.FC = () => {
@@ -49,6 +51,7 @@ export const StudentProfileModal: React.FC = () => {
 
   const [medNotes, setMedNotes] = useState('');
   const [tchNotes, setTchNotes] = useState('');
+  const [fpId, setFpId] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [customPoints, setCustomPoints] = useState<number>(1);
   const [customType, setCustomType] = useState<'positive' | 'negative'>('positive');
@@ -60,6 +63,7 @@ export const StudentProfileModal: React.FC = () => {
     if (student) {
       setMedNotes(student.medicalNotes || '');
       setTchNotes(student.teacherNotes || '');
+      setFpId(student.fingerprintId || '');
     }
   }, [student]);
 
@@ -109,8 +113,9 @@ export const StudentProfileModal: React.FC = () => {
     updateStudent(student.id, {
       medicalNotes: medNotes.trim(),
       teacherNotes: tchNotes.trim(),
+      fingerprintId: fpId.trim() || undefined,
     });
-    showToast('تم حفظ الملاحظات بنجاح', 'success');
+    showToast('تم حفظ بيانات وملاحظات الطالب بنجاح', 'success');
   };
 
   const handleExportStudentPDF = async () => {
@@ -153,7 +158,17 @@ export const StudentProfileModal: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-black text-zinc-900">{student.name}</h2>
-              <p className="text-xs font-bold text-zinc-500">{studentClass?.name || 'فصل مجهول'}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs font-bold text-zinc-500">{studentClass?.name || 'فصل مجهول'}</p>
+                {student.fingerprintId ? (
+                  <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200/80 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                    <Fingerprint className="w-2.5 h-2.5" />
+                    بصمة #{student.fingerprintId}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-zinc-400 font-medium">بدون بصمة</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -616,9 +631,23 @@ export const StudentProfileModal: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 5: TEACHER NOTES */}
+          {/* TAB 5: TEACHER NOTES & BIOMETRIC */}
           {activeTab === 'teacher' && (
             <div className="space-y-3">
+              <div className="p-3 bg-teal-50/60 border border-teal-200 rounded-xl space-y-1">
+                <label className="text-xs font-black text-teal-900 flex items-center gap-1.5">
+                  <Fingerprint className="w-3.5 h-3.5 text-teal-700" />
+                  <span>رقم البصمة في جهاز الحضور البيومتري (PIN / ID):</span>
+                </label>
+                <input
+                  type="text"
+                  value={fpId}
+                  onChange={(e) => setFpId(e.target.value)}
+                  placeholder="مثال: 101 أو رقم الهوية..."
+                  className="w-full bg-white border border-teal-300 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-teal-950 outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
               <div>
                 <label className="text-xs font-black text-zinc-800 block mb-1">
                   ملاحظات وتوصيات المعلم السلوكية والمهارية:
@@ -637,7 +666,7 @@ export const StudentProfileModal: React.FC = () => {
                 onClick={handleSaveNotes}
                 className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl cursor-pointer"
               >
-                حفظ ملاحظة المعلم
+                حفظ التعديلات وملاحظات المعلم
               </button>
             </div>
           )}

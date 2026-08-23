@@ -12,6 +12,10 @@ import {
   Settings,
   Bell,
   Volume2,
+  Fingerprint,
+  ShieldCheck,
+  LogIn,
+  CloudCheck,
 } from 'lucide-react';
 import { triggerFullPeriodAlert } from '../utils/notificationSound';
 
@@ -25,6 +29,10 @@ export const HomeView: React.FC = () => {
     setSelectedClassId,
     setActiveTab,
     triggerHaptic,
+    setIsFingerprintModalOpen,
+    fingerprintDevices,
+    user,
+    setIsAuthModalOpen,
   } = useApp();
 
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
@@ -352,14 +360,82 @@ export const HomeView: React.FC = () => {
         </div>
 
         {/* Large Primary Action Button */}
-        <button
-          type="button"
-          onClick={() => handleStartAttendanceForClass()}
-          className="w-full mt-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-base flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
-        >
-          <span>ابدأ تحضير {currentClassName} الآن ⏱️</span>
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => handleStartAttendanceForClass()}
+            className="sm:col-span-2 py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
+          >
+            <span>ابدأ تحضير {currentClassName} الآن ⏱️</span>
+          </button>
+
+          <button
+            id="btn-home-open-fingerprint"
+            type="button"
+            onClick={() => {
+              triggerHaptic(20);
+              setIsFingerprintModalOpen(true);
+            }}
+            className="py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
+            title="استيراد وتفريغ جهاز البصمة"
+          >
+            <Fingerprint className="w-5 h-5 text-emerald-200" />
+            <span>جهاز البصمة 🖲️</span>
+          </button>
+        </div>
       </div>
+
+      {/* Private Workspace & Cloud Isolation Status Banner */}
+      {user ? (
+        <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-300/80 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-right">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-emerald-950">مساحة عمل خاصة ومعزولة 🔒</span>
+                <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md">
+                  سحابي
+                </span>
+              </div>
+              <p className="text-[11px] font-bold text-emerald-800 truncate" dir="ltr">
+                {user.email || 'حساب مستقل'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="text-[11px] font-black text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl shadow-2xs shrink-0 cursor-pointer transition-all"
+          >
+            إدارة الحساب
+          </button>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white rounded-2xl p-4 shadow-md space-y-2 text-right">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CloudCheck className="w-5 h-5 text-indigo-300 shrink-0" />
+              <h3 className="text-xs font-black text-white">نظام المعلم المستقل (عزل تام للبيانات 🔒)</h3>
+            </div>
+            <span className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] font-black px-2 py-0.5 rounded-full">
+              موصى به
+            </span>
+          </div>
+          <p className="text-[11px] text-indigo-100 font-semibold leading-relaxed">
+            سجّل دخولك ببريدك الإلكتروني لإنشاء مساحة عملك الخاصة المعزولة 100%، حيث لا يستطيع أي معلم آخر رؤية أو تعديل بيانات طلابك وفصولك ودرجاتك.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="w-full mt-1 bg-white hover:bg-indigo-50 text-indigo-950 text-xs font-black py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all"
+          >
+            <LogIn className="w-4 h-4 text-indigo-600" />
+            <span>تسجيل الدخول / إنشاء حسابك المستقل</span>
+          </button>
+        </div>
+      )}
 
       {/* Main Navigation Rows */}
       <div className="space-y-2.5">
