@@ -31,7 +31,6 @@ import {
   Clock,
   Smartphone,
   Check,
-  Fingerprint,
   Laptop,
 } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
@@ -67,8 +66,6 @@ export const SettingsView: React.FC = () => {
     setIsAuthModalOpen,
     logoutUser,
     showToast,
-    fingerprintDevices,
-    setIsFingerprintModalOpen,
   } = useApp();
 
   const [schoolNameInput, setSchoolNameInput] = useState(settings.schoolName);
@@ -659,63 +656,6 @@ export const SettingsView: React.FC = () => {
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Biometric & Fingerprint Devices Management Card */}
-      <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-          <h2 className="text-sm font-black text-zinc-900 flex items-center gap-2">
-            <Fingerprint className="w-4 h-4 text-emerald-600" />
-            <span>أجهزة البصمة والتحضير البيومتري الذكي</span>
-          </h2>
-          <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-200/80">
-            {fingerprintDevices.length} أجهزة مربوطة 🖲️
-          </span>
-        </div>
-
-        <div className="bg-gradient-to-r from-emerald-50 via-teal-50/50 to-slate-50 p-4 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-              <Laptop className="w-4 h-4 text-emerald-700" />
-              <span>الربط المباشر مع أجهزة البصمة (ZKTeco / USB / Excel / DAT)</span>
-            </h3>
-            <p className="text-[11px] text-slate-600 font-medium">
-              استورد سجلات الحضور بضغطة زر من فلاشة USB أو شغّل الماسح المباشر في الصالة الرياضية لحساب الحضور والتأخر تلقائياً.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsFingerprintModalOpen(true)}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-2 shrink-0 transition-all active:scale-95"
-          >
-            <Fingerprint className="w-4 h-4" />
-            <span>فتح نافذة أجهزة البصمة</span>
-          </button>
-        </div>
-
-        {fingerprintDevices.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            {fingerprintDevices.map((dev) => (
-              <div
-                key={dev.id}
-                className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl flex items-center justify-between text-xs"
-              >
-                <div>
-                  <div className="font-bold text-slate-900">{dev.name}</div>
-                  <div className="text-[10px] text-slate-500">{dev.model} • {dev.location}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsFingerprintModalOpen(true)}
-                  className="text-emerald-700 font-bold text-[11px] hover:underline"
-                >
-                  استيراد سجلات ⇦
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Weekly Timetable Setup */}

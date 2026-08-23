@@ -15,35 +15,10 @@ export interface Student {
   name: string;
   classId: string;
   nationalId?: string;
-  fingerprintId?: string; // Fingerprint device user PIN / ID / Biometric Badge
   medicalNotes?: string; // e.g., "ربو خفيف", "إصابة ركبة", "عذر طبي مؤقت"
   phone?: string;
   teacherNotes?: string;
   notes?: string;
-}
-
-export interface FingerprintDevice {
-  id: string;
-  name: string; // e.g. "جهاز الصالة الرياضية (ZKTeco)"
-  model: string; // e.g. "ZKTeco K40 / USB"
-  type: 'usb_file' | 'live_usb_reader' | 'network_ip';
-  location?: string;
-  ipAddress?: string;
-  port?: number;
-  lastSync?: string;
-  autoMarkLateMinutes?: number; // e.g. 10 minutes
-}
-
-export interface FingerprintLogRecord {
-  rawId: string; // Student/User ID in fingerprint device
-  timestamp: string; // "2026-08-21 07:15:30"
-  date: string; // "YYYY-MM-DD"
-  time: string; // "HH:mm:ss"
-  studentId?: string;
-  studentName?: string;
-  className?: string;
-  status: 'present' | 'late';
-  matchType: 'fingerprint_id' | 'national_id' | 'name' | 'unmatched';
 }
 
 export interface DailyLogRecord {
@@ -142,8 +117,6 @@ export interface TeacherSettings {
   schoolLogo?: string;
   periodTimes?: PeriodTimeConfig[];
   notifications?: NotificationSettings;
-  fingerprintDevices?: FingerprintDevice[];
-  defaultFingerprintGraceMinutes?: number; // e.g. 10 minutes
 }
 
 export type ActiveTab =

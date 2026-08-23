@@ -11,8 +11,6 @@ import {
   MeasurementItem,
   TimetableEntry,
   TeacherSettings,
-  FingerprintDevice,
-  FingerprintLogRecord,
 } from '../types';
 import {
   auth,
@@ -20,7 +18,8 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInAnonymously,
+  sendPasswordResetEmail,
+  updateProfile,
   firebaseSignOut,
   onAuthStateChanged,
   doc,
@@ -60,17 +59,6 @@ interface AppContextType {
   timetable: TimetableEntry[];
   settings: TeacherSettings;
 
-  // Firebase Auth & Cloud Sync
-  user: User | null;
-  authLoading: boolean;
-  isAuthModalOpen: boolean;
-  setIsAuthModalOpen: (open: boolean) => void;
-  loginWithGoogle: () => Promise<void>;
-  loginWithEmail: (email: string, pass: string) => Promise<void>;
-  registerWithEmail: (email: string, pass: string) => Promise<void>;
-  loginAnonymously: () => Promise<void>;
-  logoutUser: () => Promise<void>;
-
   selectedClassId: string;
   setSelectedClassId: (id: string) => void;
   selectedDate: string;
@@ -101,24 +89,10 @@ interface AppContextType {
     studentNumber: string;
     name: string;
     className: string;
-    fingerprintId?: string;
     height?: number | string;
     weight?: number | string;
     medicalNotes?: string;
   }>) => void;
-
-  // Fingerprint & Biometric Devices
-  fingerprintDevices: FingerprintDevice[];
-  isFingerprintModalOpen: boolean;
-  setIsFingerprintModalOpen: (open: boolean) => void;
-  addFingerprintDevice: (device: Omit<FingerprintDevice, 'id'>) => void;
-  updateFingerprintDevice: (id: string, updates: Partial<FingerprintDevice>) => void;
-  deleteFingerprintDevice: (id: string) => void;
-  applyFingerprintAttendanceLogs: (
-    logs: FingerprintLogRecord[],
-    targetDate: string,
-    targetClassId?: string
-  ) => { updatedCount: number; presentCount: number; lateCount: number };
 
   // Attendance actions
   attendanceCheckItems: AttendanceCheckItem[];
@@ -190,6 +164,17 @@ interface AppContextType {
     timetable?: TimetableEntry[];
     settings?: TeacherSettings;
   }) => void;
+
+  // Firebase Auth & Cloud Sync
+  user: User | null;
+  authLoading: boolean;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  registerWithEmail: (email: string, pass: string, teacherName?: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  logoutUser: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -220,104 +205,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Incentives & Violations
   const [incentiveRecords, setIncentiveRecords] = useState<IncentiveRecord[]>([]);
 
-  // Firebase Auth & Local User State
-  const [user, setUser] = useState<any>(() => {
-    if (typeof window !== 'undefined') {
-      const savedLocalUser = localStorage.getItem('hosati_local_user');
-      if (savedLocalUser) {
-        try {
-          return JSON.parse(savedLocalUser);
-        } catch {
-          // ignore
-        }
-      }
-    }
-    return null;
-  });
+  // Firebase Auth State
+  const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isInitialCloudLoaded, setIsInitialCloudLoaded] = useState<boolean>(false);
 
-  // Helper to activate local persistent session
-  const activateLocalSession = (emailInput?: string) => {
-    const localProfile = {
-      uid: 'teacher_' + (emailInput ? emailInput.replace(/[^a-zA-Z0-9]/g, '_') : 'guest_account'),
-      email: emailInput || 'teacher@hosati.app',
-      displayName: emailInput ? emailInput.split('@')[0] : 'حساب المعلم السحابي',
-      isAnonymous: !emailInput,
-    };
-    setUser(localProfile);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hosati_local_user', JSON.stringify(localProfile));
-    }
-    return localProfile;
-  };
-
   // Auth Functions
   const loginWithGoogle = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err: any) {
-      if (
-        err?.name === 'AbortError' ||
-        err?.code === 'auth/popup-closed-by-user' ||
-        err?.code === 'auth/cancelled-popup-request' ||
-        err?.message?.includes('aborted')
-      ) {
-        return;
-      }
-      console.warn('Firebase Google Auth error, activating fallback local account:', err);
-      activateLocalSession('google_user@hosati.app');
-    }
+    await signInWithPopup(auth, googleProvider);
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (err: any) {
-      if (
-        err?.code === 'auth/operation-not-allowed' ||
-        err?.message?.includes('operation-not-allowed') ||
-        err?.code === 'auth/unauthorized-domain'
-      ) {
-        console.warn('Firebase Email Auth disabled, activating fallback local user:', err);
-        activateLocalSession(email);
-        return;
-      }
-      throw err;
+    await signInWithEmailAndPassword(auth, email.trim(), pass);
+  };
+
+  const registerWithEmail = async (email: string, pass: string, teacherName?: string) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    if (teacherName && userCredential.user) {
+      await updateProfile(userCredential.user, {
+        displayName: teacherName.trim(),
+      }).catch(() => {});
     }
   };
 
-  const registerWithEmail = async (email: string, pass: string) => {
-    try {
-      await createUserWithEmailAndPassword(auth, email, pass);
-    } catch (err: any) {
-      if (
-        err?.code === 'auth/operation-not-allowed' ||
-        err?.message?.includes('operation-not-allowed') ||
-        err?.code === 'auth/unauthorized-domain'
-      ) {
-        console.warn('Firebase Email Register disabled, activating fallback local user:', err);
-        activateLocalSession(email);
-        return;
-      }
-      throw err;
-    }
-  };
-
-  const loginAnonymously = async () => {
-    try {
-      await signInAnonymously(auth);
-    } catch (err: any) {
-      console.warn('Firebase Anonymous Auth error, activating fallback local session:', err);
-      activateLocalSession();
-    }
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email.trim());
   };
 
   const logoutUser = async () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('hosati_local_user');
-    }
+    await firebaseSignOut(auth);
     setUser(null);
     setClasses([]);
     setStudents([]);
@@ -330,19 +247,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedClassId('');
     setSelectedStudentId(null);
     setIsInitialCloudLoaded(false);
-    try {
-      await firebaseSignOut(auth);
-    } catch {
-      // ignore
-    }
   };
 
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      }
+      setUser(currentUser);
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -658,7 +568,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       studentNumber: string;
       name: string;
       className: string;
-      fingerprintId?: string;
       height?: number | string;
       weight?: number | string;
       medicalNotes?: string;
@@ -711,7 +620,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: r.name.trim(),
         classId: clsId,
         nationalId: r.studentNumber || undefined,
-        fingerprintId: r.fingerprintId || undefined,
         medicalNotes: r.medicalNotes || undefined,
       };
 
@@ -1072,107 +980,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [incentiveRecords]
   );
 
-  // Biometric & Fingerprint state
-  const [isFingerprintModalOpen, setIsFingerprintModalOpen] = useState(false);
-  const fingerprintDevices = settings.fingerprintDevices || [];
-
-  const addFingerprintDevice = (deviceData: Omit<FingerprintDevice, 'id'>) => {
-    const newDev: FingerprintDevice = {
-      ...deviceData,
-      id: `fp-dev-${Date.now()}`,
-      lastSync: 'لم تتم المزامنة بعد',
-    };
-    const currentDevs = settings.fingerprintDevices || [];
-    const updated = [...currentDevs, newDev];
-    updateSettings({ fingerprintDevices: updated });
-    showToast(`تمت إضافة جهاز البصمة "${deviceData.name}" بنجاح! 🖲️`, 'success');
-  };
-
-  const updateFingerprintDevice = (id: string, updates: Partial<FingerprintDevice>) => {
-    const currentDevs = settings.fingerprintDevices || [];
-    const updated = currentDevs.map((d) => (d.id === id ? { ...d, ...updates } : d));
-    updateSettings({ fingerprintDevices: updated });
-    showToast('تم حفظ إعدادات جهاز البصمة', 'success');
-  };
-
-  const deleteFingerprintDevice = (id: string) => {
-    const currentDevs = settings.fingerprintDevices || [];
-    const updated = currentDevs.filter((d) => d.id !== id);
-    updateSettings({ fingerprintDevices: updated });
-    showToast('تم حذف جهاز البصمة', 'info');
-  };
-
-  const applyFingerprintAttendanceLogs = (
-    logs: FingerprintLogRecord[],
-    targetDate: string,
-    targetClassId?: string
-  ): { updatedCount: number; presentCount: number; lateCount: number } => {
-    if (!logs || logs.length === 0) return { updatedCount: 0, presentCount: 0, lateCount: 0 };
-
-    const matchedLogs = logs.filter((l) => l.studentId);
-    const relevantLogs =
-      targetClassId && targetClassId !== 'all'
-        ? matchedLogs.filter((l) => {
-            const st = students.find((s) => s.id === l.studentId);
-            return st && st.classId === targetClassId;
-          })
-        : matchedLogs;
-
-    let updatedCount = 0;
-    let presentCount = 0;
-    let lateCount = 0;
-
-    setDailyLogs((prev) => {
-      let copy = [...prev];
-      relevantLogs.forEach((log) => {
-        if (!log.studentId) return;
-        const st = students.find((s) => s.id === log.studentId);
-        if (!st) return;
-
-        const stClassId = st.classId;
-        const idx = copy.findIndex((l) => l.studentId === log.studentId && l.date === targetDate);
-        const isLate = log.status === 'late';
-        if (isLate) lateCount++;
-        else presentCount++;
-        updatedCount++;
-
-        if (idx >= 0) {
-          copy[idx] = {
-            ...copy[idx],
-            attendance: log.status,
-            uniform: copy[idx].uniform ?? true,
-            notes: copy[idx].notes
-              ? `${copy[idx].notes} | بصمة ${log.time}`
-              : `تم تسجيل الحضور عبر البصمة (${log.time})`,
-            updatedAt: new Date().toISOString(),
-          };
-        } else {
-          copy.push({
-            id: `log-${Date.now()}-${log.studentId}`,
-            studentId: log.studentId,
-            classId: stClassId,
-            date: targetDate,
-            attendance: log.status,
-            uniform: true,
-            notes: `تم تسجيل الحضور عبر البصمة (${log.time})`,
-            updatedAt: new Date().toISOString(),
-          });
-        }
-      });
-      return copy;
-    });
-
-    const nowStr = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-    updateSettings({
-      fingerprintDevices: (settings.fingerprintDevices || []).map((d) => ({
-        ...d,
-        lastSync: `${targetDate} ${nowStr}`,
-      })),
-    });
-
-    return { updatedCount, presentCount, lateCount };
-  };
-
   // Timetable
   const updateTimetableEntry = (dayOfWeek: number, periodNumber: number, classId: string) => {
     setTimetable((prev) => {
@@ -1289,15 +1096,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSettings,
         restoreData,
 
-        // Fingerprint & Biometric Devices
-        fingerprintDevices,
-        isFingerprintModalOpen,
-        setIsFingerprintModalOpen,
-        addFingerprintDevice,
-        updateFingerprintDevice,
-        deleteFingerprintDevice,
-        applyFingerprintAttendanceLogs,
-
         // Firebase Auth & Cloud Sync
         user,
         authLoading,
@@ -1306,7 +1104,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginWithGoogle,
         loginWithEmail,
         registerWithEmail,
-        loginAnonymously,
+        resetPassword,
         logoutUser,
       }}
     >

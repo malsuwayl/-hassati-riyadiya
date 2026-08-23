@@ -39,34 +39,11 @@ export const DEFAULT_PERIOD_TIMES: PeriodTimeConfig[] = [
   { periodNumber: 7, startTime: '12:25', endTime: '13:10' },
 ];
 
-export const DEFAULT_FINGERPRINT_DEVICES = [
-  {
-    id: 'fp-dev-1',
-    name: 'جهاز الصالة الرياضية الرئيسي (ZKTeco K40)',
-    model: 'ZKTeco K40 / USB',
-    type: 'usb_file' as const,
-    location: 'مدخل الصالة الرياضية',
-    lastSync: '2026-08-21 07:30',
-    autoMarkLateMinutes: 10,
-  },
-  {
-    id: 'fp-dev-2',
-    name: 'قارئ البصمة والبطاقات USB المباشر',
-    model: 'USB Live Fingerprint / Card Reader',
-    type: 'live_usb_reader' as const,
-    location: 'مكتب معلم التربية البدنية',
-    lastSync: '2026-08-21 07:15',
-    autoMarkLateMinutes: 10,
-  },
-];
-
 export const DEFAULT_TEACHER_SETTINGS: TeacherSettings = {
   schoolName: 'مدرسة الأمل الثانوية',
   teacherName: 'أ. محمد القحطاني',
   periodTimes: DEFAULT_PERIOD_TIMES,
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
-  fingerprintDevices: DEFAULT_FINGERPRINT_DEVICES,
-  defaultFingerprintGraceMinutes: 10,
 };
 
 export const SAMPLE_DEMO_CLASSES: ClassItem[] = [
@@ -81,7 +58,6 @@ export const SAMPLE_DEMO_STUDENTS: Student[] = [
     name: 'عبدالله بن محمد العتيبي',
     classId: 'class-1',
     nationalId: '1102938471',
-    fingerprintId: '101',
     medicalNotes: 'ربو خفيف عند الإجهاد العالي',
     phone: '0501234567',
     teacherNotes: 'طالب متميز رياضياً ولائق بدنياً',
@@ -91,7 +67,6 @@ export const SAMPLE_DEMO_STUDENTS: Student[] = [
     name: 'سعود بن عبدالعزيز الدوسري',
     classId: 'class-1',
     nationalId: '1098765432',
-    fingerprintId: '102',
     phone: '0559876543',
   },
   {
@@ -99,7 +74,6 @@ export const SAMPLE_DEMO_STUDENTS: Student[] = [
     name: 'فهد بن خالد القحطاني',
     classId: 'class-1',
     nationalId: '1087654321',
-    fingerprintId: '103',
     medicalNotes: 'إصابة سابقة بالرباط الصليبي',
   },
   {
@@ -107,14 +81,12 @@ export const SAMPLE_DEMO_STUDENTS: Student[] = [
     name: 'سلمان بن حمد الشمري',
     classId: 'class-2',
     nationalId: '1032109876',
-    fingerprintId: '104',
   },
   {
     id: 'st-5',
     name: 'عمر بن فاروق الغامدي',
     classId: 'class-2',
     nationalId: '1044556677',
-    fingerprintId: '105',
     medicalNotes: 'عذر طبي مؤقت',
   },
 ];

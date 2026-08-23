@@ -73,7 +73,6 @@ export function exportToExcel(
       '#': idx + 1,
       'اسم الطالب': s.name,
       'الفصل': cls?.name || '',
-      'رقم البصمة': s.fingerprintId || '',
       'السجل المدني': s.nationalId || '',
       'رقم الجوال': s.phone || '',
       'ملاحظات صحية': s.medicalNotes || '',

@@ -12,7 +12,6 @@ import {
   Settings,
   Bell,
   Volume2,
-  Fingerprint,
   ShieldCheck,
   LogIn,
   CloudCheck,
@@ -29,8 +28,6 @@ export const HomeView: React.FC = () => {
     setSelectedClassId,
     setActiveTab,
     triggerHaptic,
-    setIsFingerprintModalOpen,
-    fingerprintDevices,
     user,
     setIsAuthModalOpen,
   } = useApp();
@@ -360,29 +357,13 @@ export const HomeView: React.FC = () => {
         </div>
 
         {/* Large Primary Action Button */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-          <button
-            type="button"
-            onClick={() => handleStartAttendanceForClass()}
-            className="sm:col-span-2 py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
-          >
-            <span>ابدأ تحضير {currentClassName} الآن ⏱️</span>
-          </button>
-
-          <button
-            id="btn-home-open-fingerprint"
-            type="button"
-            onClick={() => {
-              triggerHaptic(20);
-              setIsFingerprintModalOpen(true);
-            }}
-            className="py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
-            title="استيراد وتفريغ جهاز البصمة"
-          >
-            <Fingerprint className="w-5 h-5 text-emerald-200" />
-            <span>جهاز البصمة 🖲️</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => handleStartAttendanceForClass()}
+          className="w-full mt-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-base flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
+        >
+          <span>ابدأ تحضير {currentClassName} الآن ⏱️</span>
+        </button>
       </div>
 
       {/* Private Workspace & Cloud Isolation Status Banner */}

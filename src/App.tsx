@@ -12,14 +12,48 @@ import { StudentsView } from './components/StudentsView';
 import { SettingsView } from './components/SettingsView';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { AuthModal } from './components/AuthModal';
-import { FingerprintModal } from './components/FingerprintModal';
+import { LoginScreen } from './components/LoginScreen';
 import { usePeriodNotifier } from './hooks/usePeriodNotifier';
+import { School } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { activeTab, isAuthModalOpen, setIsAuthModalOpen, timetable, classes, settings, showToast } = useApp();
+  const {
+    user,
+    authLoading,
+    activeTab,
+    isAuthModalOpen,
+    setIsAuthModalOpen,
+    timetable,
+    classes,
+    settings,
+    showToast,
+  } = useApp();
 
   // Run periodic class bell and notification checker
   usePeriodNotifier(timetable, classes, settings, showToast);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white" dir="rtl">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mb-4 shadow-lg shadow-indigo-600/30 animate-pulse">
+          <School className="w-8 h-8 text-white" />
+        </div>
+        <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
+          <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          <span>جاري التحقق من الحساب عبر Firebase...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <LoginScreen />
+        <Toast />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-28 sm:pb-24 font-sans selection:bg-indigo-100 selection:text-indigo-900">
@@ -38,7 +72,6 @@ const MainContent: React.FC = () => {
 
       <StudentProfileModal />
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      <FingerprintModal />
       <BottomNav />
       <Toast />
     </div>
