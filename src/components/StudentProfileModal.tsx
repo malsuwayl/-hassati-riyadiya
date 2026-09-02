@@ -6,6 +6,7 @@ import {
   calculateStudentFitnessSummary,
 } from '../utils/measurementUtils';
 import { generateStudentIndividualPDFReport } from '../utils/pdfExport';
+import { cleanImportedString } from '../utils/fileImportExport';
 import {
   X,
   CheckCircle,
@@ -59,8 +60,8 @@ export const StudentProfileModal: React.FC = () => {
 
   useEffect(() => {
     if (student) {
-      setMedNotes(student.medicalNotes || '');
-      setTchNotes(student.teacherNotes || '');
+      setMedNotes(cleanImportedString(student.medicalNotes) || '');
+      setTchNotes(cleanImportedString(student.teacherNotes) || '');
     }
   }, [student]);
 

@@ -4,6 +4,7 @@ import { AttendanceStatus } from '../types';
 import { Search, CheckCheck, RotateCcw, Plus, Trash2, ListChecks, FileText, StickyNote, X, Edit3, Sparkles, HelpCircle, Check, ArrowRight, Save, CheckCircle2 } from 'lucide-react';
 import { generateAttendancePDFReport } from '../utils/pdfExport';
 import { QuickCardMode } from './QuickCardMode';
+import { cleanImportedString } from '../utils/fileImportExport';
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -444,17 +445,17 @@ export const AttendanceView: React.FC = () => {
                         >
                           {student.name}
                         </button>
-                        {student.medicalNotes && (
+                        {cleanImportedString(student.medicalNotes) && (
                           <span
                             className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded cursor-help"
-                            title={student.medicalNotes}
+                            title={cleanImportedString(student.medicalNotes)}
                           >
                             ⚠️ حالة صحية
                           </span>
                         )}
 
                         {/* Note pill indicator if set */}
-                        {studentNote && !isNoteOpen && (
+                        {cleanImportedString(studentNote) && !isNoteOpen && (
                           <button
                             type="button"
                             onClick={() => handleOpenNoteModal(student.id, studentNote)}
@@ -462,7 +463,7 @@ export const AttendanceView: React.FC = () => {
                             title="تعديل الملاحظة"
                           >
                             <StickyNote className="w-3 h-3 text-purple-600" />
-                            <span className="max-w-[110px] truncate">{studentNote}</span>
+                            <span className="max-w-[110px] truncate">{cleanImportedString(studentNote)}</span>
                           </button>
                         )}
                       </div>

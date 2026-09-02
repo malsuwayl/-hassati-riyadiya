@@ -708,13 +708,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Student actions
   const addStudent = (stData: Omit<Student, 'id'>) => {
-    const newSt: Student = { ...stData, id: `st-${Date.now()}-${Math.random().toString(36).substring(2, 6)}` };
+    const cleanMedNotes = cleanImportedString(stData.medicalNotes) || undefined;
+    const cleanTeachNotes = cleanImportedString(stData.teacherNotes) || undefined;
+    const cleanNationalId = cleanImportedString(stData.nationalId) || undefined;
+    const newSt: Student = {
+      ...stData,
+      name: stData.name.trim(),
+      nationalId: cleanNationalId,
+      medicalNotes: cleanMedNotes,
+      teacherNotes: cleanTeachNotes,
+      id: `st-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    };
     setStudents((prev) => [...prev, newSt]);
     showToast(`تمت إضافة الطالب ${stData.name}`, 'success');
   };
 
   const updateStudent = (id: string, updatedData: Partial<Student>) => {
-    setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, ...updatedData } : s)));
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        const cleanMedNotes =
+          updatedData.medicalNotes !== undefined
+            ? cleanImportedString(updatedData.medicalNotes) || undefined
+            : s.medicalNotes;
+        const cleanTeachNotes =
+          updatedData.teacherNotes !== undefined
+            ? cleanImportedString(updatedData.teacherNotes) || undefined
+            : s.teacherNotes;
+        const cleanNationalId =
+          updatedData.nationalId !== undefined
+            ? cleanImportedString(updatedData.nationalId) || undefined
+            : s.nationalId;
+        return {
+          ...s,
+          ...updatedData,
+          nationalId: cleanNationalId,
+          medicalNotes: cleanMedNotes,
+          teacherNotes: cleanTeachNotes,
+        };
+      })
+    );
     showToast('تم تحديث بيانات الطالب', 'success');
   };
 
@@ -1136,6 +1169,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteMeasurementItem = (id: string) => {
+    if (id === 'm-height' || id === 'm-weight') {
+      showToast('لا يمكن حذف عنصري الطول والوزن لأنهما أساسيان لحساب مؤشر كتلة الجسم (BMI)', 'warning');
+      return;
+    }
     setMeasurementItems((prev) => prev.filter((m) => m.id !== id));
     showToast('تم حذف بند القياس', 'info');
   };
@@ -1175,6 +1212,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         [studentId]: stVals,
       };
     });
+
+    // Synchronize height and weight properties on student for cross-view consistency
+    if (itemId === 'm-height' || itemId === 'm-weight') {
+      const numVal = val !== undefined && val !== '' ? parseFloat(String(val)) : undefined;
+      setStudents((prevSts) =>
+        prevSts.map((s) => {
+          if (s.id !== studentId) return s;
+          return {
+            ...s,
+            height: itemId === 'm-height' ? (numVal !== undefined && !isNaN(numVal) ? numVal : undefined) : s.height,
+            weight: itemId === 'm-weight' ? (numVal !== undefined && !isNaN(numVal) ? numVal : undefined) : s.weight,
+          };
+        })
+      );
+    }
   };
 
   // Incentive & Violations Actions

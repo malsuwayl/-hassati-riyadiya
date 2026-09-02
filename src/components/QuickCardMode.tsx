@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   StickyNote,
 } from 'lucide-react';
+import { cleanImportedString } from '../utils/fileImportExport';
 
 interface QuickCardModeProps {
   onClose: () => void;
@@ -179,10 +180,10 @@ export const QuickCardMode: React.FC<QuickCardModeProps> = ({ onClose }) => {
           {currentStudent.name}
         </h3>
 
-        {currentStudent.medicalNotes && (
+        {cleanImportedString(currentStudent.medicalNotes) && (
           <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-1 rounded-xl text-xs font-black">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-            <span>حالة صحية: {currentStudent.medicalNotes}</span>
+            <span>حالة صحية: {cleanImportedString(currentStudent.medicalNotes)}</span>
           </div>
         )}
 

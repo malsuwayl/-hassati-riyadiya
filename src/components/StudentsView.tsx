@@ -18,7 +18,7 @@ import {
   Save,
 } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
-import { exportToExcel } from '../utils/fileImportExport';
+import { exportToExcel, cleanImportedString } from '../utils/fileImportExport';
 import { generateComprehensivePDFReport } from '../utils/pdfExport';
 
 export const StudentsView: React.FC = () => {
@@ -418,9 +418,9 @@ export const StudentsView: React.FC = () => {
                           <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-2 py-0.2 rounded">
                             {cls?.name || 'فصل مجهول'}
                           </span>
-                          {st.medicalNotes && (
+                          {cleanImportedString(st.medicalNotes) && (
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                              ⚠️ {st.medicalNotes}
+                              ⚠️ {cleanImportedString(st.medicalNotes)}
                             </span>
                           )}
                         </div>

@@ -192,59 +192,92 @@ export function downloadSampleTemplateCSV() {
   URL.revokeObjectURL(url);
 }
 
-const PLACEHOLDER_STRINGS = new Set([
-  'لا يوجد',
-  'لايوجد',
-  'سليم',
-  'لم ينتهي وقت التسليم',
-  'لم ينته وقت التسليم',
-  'لم ينتهي وقت تسليم',
-  'لم ينته وقت تسليم',
-  'لم ينتهي التسليم',
-  'لم ينته التسليم',
-  'انتهى وقت التسليم',
-  'انتهى وقت تسليم',
-  'وقت التسليم',
-  'لم يتم التسليم',
-  'لم يتم تسليم',
-  'لم يسلم',
-  'غير مسلم',
-  'غير مسلّم',
-  'لم يسلم الواجب',
-  'لم تسلم',
-  'لم يتم الحل',
-  'لم يحل',
-  'لا شيء',
-  'لاشيء',
-  'غير محدد',
-  'none',
-  'null',
-  'undefined',
-  '-',
-  '--',
-  'n/a',
-  'na',
-]);
+export function isPlaceholderOrSubmissionStatus(val?: string | null): boolean {
+  if (!val) return true;
+  const str = String(val)
+    .replace(/[\u064B-\u065F\u0670]/g, '') // remove Arabic tashkeel
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  if (
+    !str ||
+    str === '-' ||
+    str === '--' ||
+    str === '---' ||
+    str === 'n/a' ||
+    str === 'na' ||
+    str === 'null' ||
+    str === 'undefined' ||
+    str === 'none'
+  ) {
+    return true;
+  }
+
+  const bannedKeywords = [
+    'لم يتم التسليم',
+    'لم يتم تسليم',
+    'لم ينتهي وقت التسليم',
+    'لم ينته وقت التسليم',
+    'لم ينتهي وقت تسليم',
+    'لم ينته وقت تسليم',
+    'لم ينتهي التسليم',
+    'لم ينته التسليم',
+    'انتهى وقت التسليم',
+    'انتهى وقت تسليم',
+    'وقت التسليم',
+    'حالة التسليم',
+    'تاريخ التسليم',
+    'لم يسلم',
+    'غير مسلم',
+    'غير مسلّم',
+    'لم يسلم الواجب',
+    'لم تسلم',
+    'لم يتم الحل',
+    'لم يحل',
+    'تم التسليم',
+    'تم تسليم',
+    'مسلم',
+    'مسلّم',
+    'لا يوجد',
+    'لايوجد',
+    'لا توجد ملاحظات',
+    'بدون ملاحظات',
+    'لا شيء',
+    'لاشيء',
+    'غير محدد',
+    'سليم',
+    'سليم صحياً',
+    'سليم ولله الحمد',
+    'طبيعي',
+    'مكتمل',
+    'غير مكتمل',
+  ];
+
+  for (const kw of bannedKeywords) {
+    if (str === kw || str.includes(kw)) {
+      return true;
+    }
+  }
+
+  if (
+    /تسليم/i.test(str) ||
+    /لم\s*(ينتهي|ينته|يتم|يسلم|تسلم|يحل)/i.test(str) ||
+    /وقت\s*التسليم/i.test(str) ||
+    /حالة\s*التسليم/i.test(str)
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 export function cleanImportedString(val?: string | null): string {
   if (!val) return '';
-  const trimmed = String(val).trim();
-  const lower = trimmed.toLowerCase();
-  
-  if (PLACEHOLDER_STRINGS.has(lower)) {
+  if (isPlaceholderOrSubmissionStatus(val)) {
     return '';
   }
-
-  // Regex check for phrases like "لم ينتهي وقت التسليم" / "لم يتم التسليم" with extra spaces or punctuation
-  if (
-    /^(لم\s*(ينتهي|ينته|يتم|يسلم|تسلم)?\s*(وقت)?\s*(التسليم|تسليم|الواجب|الحل)?)$/i.test(trimmed) ||
-    /وقت\s*التسليم/i.test(trimmed) ||
-    /لم\s*(ينتهي|ينته)\s*وقت/i.test(trimmed)
-  ) {
-    return '';
-  }
-
-  return trimmed;
+  return String(val).trim();
 }
 
 export interface ParsedStudentRow {
@@ -288,88 +321,99 @@ export const recalculateParsedRows = (
   const seenInFileKeys = new Set<string>();
   const newClassesSet = new Set<string>();
 
-  const updatedRows: ParsedStudentRow[] = rawRowsList.map((r) => {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    const name = r.name.trim();
-    const className = r.className.trim();
-    const studentNumber = r.studentNumber.trim();
+  const updatedRows: ParsedStudentRow[] = rawRowsList
+    .filter((r) => {
+      // Filter out spurious rows where the name is empty or is a submission status phrase
+      const name = r.name ? r.name.trim() : '';
+      if (!name || isPlaceholderOrSubmissionStatus(name)) {
+        return false;
+      }
+      return true;
+    })
+    .map((r) => {
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      const name = r.name.trim();
+      const className = r.className ? r.className.trim() : '';
+      const studentNumber = r.studentNumber ? r.studentNumber.trim() : '';
+      const medicalNotes = cleanImportedString(r.medicalNotes);
 
-    if (!name) {
-      errors.push('اسم الطالب مفقود');
-    }
-    if (!className) {
-      errors.push('اسم الفصل مفقود (يرجى اختيار فصل للطلاب)');
-    }
+      if (!name || isPlaceholderOrSubmissionStatus(name)) {
+        errors.push('اسم الطالب مفقود أو غير صالح');
+      }
+      if (!className) {
+        errors.push('اسم الفصل مفقود (يرجى اختيار فصل للطلاب)');
+      }
 
-    const matchedClass = existingClasses.find(
-      (c) => c.name.trim().toLowerCase() === className.toLowerCase()
-    );
-    const isNewClass = !matchedClass && Boolean(className);
-    if (isNewClass) {
-      newClassesSet.add(className);
-    }
-
-    let isDuplicate = false;
-
-    // Check duplicate by number in DB
-    if (studentNumber) {
-      const dbMatchByNumber = existingStudents.some(
-        (s) => s.nationalId && s.nationalId.trim() === studentNumber
+      const matchedClass = existingClasses.find(
+        (c) => c.name.trim().toLowerCase() === className.toLowerCase()
       );
-      if (dbMatchByNumber) {
-        isDuplicate = true;
-        warnings.push(`رقم الطالب (${studentNumber}) موجود مسبقاً في النظام`);
+      const isNewClass = !matchedClass && Boolean(className);
+      if (isNewClass) {
+        newClassesSet.add(className);
       }
-    }
 
-    // Check duplicate by Name + Class in DB
-    if (!isDuplicate && name && className) {
-      const dbMatchByName = existingStudents.some((s) => {
-        const cls = existingClasses.find((c) => c.id === s.classId);
-        const stClsName = cls?.name || '';
-        return (
-          s.name.trim().toLowerCase() === name.toLowerCase() &&
-          stClsName.trim().toLowerCase() === className.toLowerCase()
+      let isDuplicate = false;
+
+      // Check duplicate by number in DB
+      if (studentNumber) {
+        const dbMatchByNumber = existingStudents.some(
+          (s) => s.nationalId && s.nationalId.trim() === studentNumber
         );
-      });
-      if (dbMatchByName) {
-        isDuplicate = true;
-        warnings.push(`الطالب (${name}) مسجل مسبقاً بنفس الفصل (${className})`);
+        if (dbMatchByNumber) {
+          isDuplicate = true;
+          warnings.push(`رقم الطالب (${studentNumber}) موجود مسبقاً في النظام`);
+        }
       }
-    }
 
-    // Check duplicate within file
-    const fileKeyNameCls = `${name.toLowerCase()}___${className.toLowerCase()}`;
-    if (studentNumber && seenInFileNumbers.has(studentNumber)) {
-      isDuplicate = true;
-      warnings.push(`رقم الطالب (${studentNumber}) مكرر داخل هذا الملف`);
-    } else if (seenInFileKeys.has(fileKeyNameCls)) {
-      isDuplicate = true;
-      warnings.push(`اسم الطالب مع الفصل مكرر داخل هذا الملف`);
-    }
+      // Check duplicate by Name + Class in DB
+      if (!isDuplicate && name && className) {
+        const dbMatchByName = existingStudents.some((s) => {
+          const cls = existingClasses.find((c) => c.id === s.classId);
+          const stClsName = cls?.name || '';
+          return (
+            s.name.trim().toLowerCase() === name.toLowerCase() &&
+            stClsName.trim().toLowerCase() === className.toLowerCase()
+          );
+        });
+        if (dbMatchByName) {
+          isDuplicate = true;
+          warnings.push(`الطالب (${name}) مسجل مسبقاً بنفس الفصل (${className})`);
+        }
+      }
 
-    if (studentNumber) seenInFileNumbers.add(studentNumber);
-    if (name && className) seenInFileKeys.add(fileKeyNameCls);
+      // Check duplicate within file
+      const fileKeyNameCls = `${name.toLowerCase()}___${className.toLowerCase()}`;
+      if (studentNumber && seenInFileNumbers.has(studentNumber)) {
+        isDuplicate = true;
+        warnings.push(`رقم الطالب (${studentNumber}) مكرر داخل هذا الملف`);
+      } else if (seenInFileKeys.has(fileKeyNameCls)) {
+        isDuplicate = true;
+        warnings.push(`اسم الطالب مع الفصل مكرر داخل هذا الملف`);
+      }
 
-    let status: 'valid' | 'duplicate' | 'error' = 'valid';
-    if (errors.length > 0) {
-      status = 'error';
-    } else if (isDuplicate) {
-      status = 'duplicate';
-    }
+      if (studentNumber) seenInFileNumbers.add(studentNumber);
+      if (name && className) seenInFileKeys.add(fileKeyNameCls);
 
-    return {
-      ...r,
-      name,
-      className,
-      studentNumber,
-      status,
-      isNewClass,
-      errors,
-      warnings,
-    };
-  });
+      let status: 'valid' | 'duplicate' | 'error' = 'valid';
+      if (errors.length > 0) {
+        status = 'error';
+      } else if (isDuplicate) {
+        status = 'duplicate';
+      }
+
+      return {
+        ...r,
+        name,
+        className,
+        studentNumber,
+        medicalNotes: medicalNotes || undefined,
+        status,
+        isNewClass,
+        errors,
+        warnings,
+      };
+    });
 
   const validRows = updatedRows.filter((r) => r.status === 'valid');
   const duplicateRows = updatedRows.filter((r) => r.status === 'duplicate');
@@ -428,6 +472,17 @@ export const parseStudentsFileAdvanced = async (
     );
 
     headerRow.forEach((cellText: string, colIdx: number) => {
+      // Skip status / submission columns from mapping as student data
+      if (
+        cellText.includes('تسليم') ||
+        cellText.includes('واجب') ||
+        cellText.includes('تاريخ') ||
+        cellText.includes('درجة') ||
+        cellText.includes('اختبار')
+      ) {
+        return;
+      }
+
       if (
         colStudentNumber === -1 &&
         (cellText.includes('number') ||
@@ -479,12 +534,12 @@ export const parseStudentsFileAdvanced = async (
 
       if (
         colMedicalNotes === -1 &&
-        (cellText.includes('notes') ||
-          cellText.includes('health') ||
+        (cellText.includes('health') ||
           cellText.includes('medical') ||
-          cellText.includes('ملاحظ') ||
-          cellText.includes('عذر') ||
-          cellText.includes('صح'))
+          cellText.includes('عذر طبي') ||
+          cellText.includes('صحي') ||
+          cellText.includes('صحية') ||
+          cellText.includes('ملاحظات صحية'))
       ) {
         colMedicalNotes = colIdx;
       }
@@ -496,13 +551,11 @@ export const parseStudentsFileAdvanced = async (
     }
   }
 
-  // Fallbacks if columns were not mapped by header names
+  // Fallbacks ONLY for Name and ID/Class if not found by header
   if (colName === -1) colName = 1; // Default to column 2 (0-indexed 1)
   if (colStudentNumber === -1) colStudentNumber = 0; // Default to column 1
   if (colClass === -1) colClass = 2; // Default to column 3
-  if (colHeight === -1) colHeight = 3;
-  if (colWeight === -1) colWeight = 4;
-  if (colMedicalNotes === -1) colMedicalNotes = 5;
+  // DO NOT fallback colMedicalNotes, colHeight, colWeight to random index columns!
 
   const parsedRows: ParsedStudentRow[] = [];
 
@@ -514,12 +567,28 @@ export const parseStudentsFileAdvanced = async (
     const isRowEmpty = rowData.every((cell) => String(cell || '').trim() === '');
     if (isRowEmpty) continue;
 
-    let studentNumber = cleanImportedString(rowData[colStudentNumber]);
-    let name = String(rowData[colName] ?? '').trim();
-    let className = String(rowData[colClass] ?? '').trim();
-    let heightRaw = rowData[colHeight];
-    let weightRaw = rowData[colWeight];
-    let medicalNotes = cleanImportedString(rowData[colMedicalNotes]);
+    let studentNumber = colStudentNumber >= 0 ? cleanImportedString(rowData[colStudentNumber]) : '';
+    let name = colName >= 0 ? String(rowData[colName] ?? '').trim() : '';
+    let className = colClass >= 0 ? String(rowData[colClass] ?? '').trim() : '';
+    let heightRaw = colHeight >= 0 ? rowData[colHeight] : undefined;
+    let weightRaw = colWeight >= 0 ? rowData[colWeight] : undefined;
+    let medicalNotes = colMedicalNotes >= 0 ? cleanImportedString(rowData[colMedicalNotes]) : '';
+
+    // If the name column cell accidentally contains a submission status phrase, skip this invalid row
+    if (!name || isPlaceholderOrSubmissionStatus(name)) {
+      // Check if studentNumber was actually the name
+      if (studentNumber && !isPlaceholderOrSubmissionStatus(studentNumber) && !/^\d+$/.test(studentNumber)) {
+        name = studentNumber;
+        studentNumber = '';
+      } else {
+        continue;
+      }
+    }
+
+    // Clean up class name if it is a submission phrase
+    if (isPlaceholderOrSubmissionStatus(className)) {
+      className = '';
+    }
 
     // Handling position swaps if column 0 was name and column 1 was number
     if (/^\d+$/.test(className) && !studentNumber) {
@@ -554,7 +623,7 @@ export const parseStudentsFileAdvanced = async (
       className,
       height,
       weight,
-      medicalNotes,
+      medicalNotes: medicalNotes || undefined,
       status: 'valid',
       isNewClass: false,
       errors: [],
@@ -617,9 +686,11 @@ export const parseStudentsFile = async (
     if (!row || !Array.isArray(row) || row.length === 0) continue;
 
     const name = String(row[0] || '').trim();
-    if (!name) continue;
+    if (!name || isPlaceholderOrSubmissionStatus(name)) continue;
 
     let rawClassName = String(row[1] || '').trim();
+    if (isPlaceholderOrSubmissionStatus(rawClassName)) rawClassName = '';
+
     let studentNumber = cleanImportedString(row[2]);
     let phone = cleanImportedString(row[3]);
     let medicalNotes = cleanImportedString(row[4]);
