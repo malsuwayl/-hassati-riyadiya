@@ -155,7 +155,7 @@ export function calculateStudentFitnessSummary(
       totalScore: 0,
       totalMaxPossible: 0,
       percentage: 0,
-      ratingLevel: 'لم يُقاس',
+      ratingLevel: '-',
     };
   }
 

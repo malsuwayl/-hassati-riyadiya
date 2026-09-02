@@ -128,34 +128,34 @@ export function downloadSampleTemplateExcel() {
     {
       'رقم الطالب': '1001',
       'اسم الطالب': 'أحمد محمد العتيبي',
-      'الفصل': 'Grade 1A',
-      'الطول': 145,
-      'الوزن': 40,
-      'الملاحظات الصحية': 'لا يوجد',
+      'الفصل': 'الصف الأول / 1',
+      'الطول': '',
+      'الوزن': '',
+      'الملاحظات الصحية': '',
     },
     {
       'رقم الطالب': '1002',
       'اسم الطالب': 'خالد عبد الله الدوسري',
-      'الفصل': 'Grade 1A',
-      'الطول': 148,
-      'الوزن': 42,
-      'الملاحظات الصحية': 'ربو خفيف عند الجري',
+      'الفصل': 'الصف الأول / 1',
+      'الطول': '',
+      'الوزن': '',
+      'الملاحظات الصحية': '',
     },
     {
       'رقم الطالب': '1003',
       'اسم الطالب': 'محمد علي الغامدي',
-      'الفصل': 'Grade 2B',
-      'الطول': 152,
-      'الوزن': 46,
-      'الملاحظات الصحية': 'حساسية طعام',
+      'الفصل': 'الصف الأول / 2',
+      'الطول': '',
+      'الوزن': '',
+      'الملاحظات الصحية': '',
     },
     {
       'رقم الطالب': '1004',
       'اسم الطالب': 'سعد بن فهد القحطاني',
-      'الفصل': 'Grade 2B',
-      'الطول': 150,
-      'الوزن': 44,
-      'الملاحظات الصحية': 'عذر طبي مؤقت',
+      'الفصل': 'الصف الأول / 2',
+      'الطول': '',
+      'الوزن': '',
+      'الملاحظات الصحية': '',
     },
   ];
 
@@ -163,7 +163,7 @@ export function downloadSampleTemplateExcel() {
   ws['!cols'] = [
     { wch: 16 },
     { wch: 28 },
-    { wch: 16 },
+    { wch: 18 },
     { wch: 12 },
     { wch: 12 },
     { wch: 26 },
@@ -178,10 +178,10 @@ export function downloadSampleTemplateCSV() {
   const csvContent =
     '\uFEFF' +
     'Student Number,Student Name,Class,Height,Weight,Health Notes\n' +
-    '1001,أحمد محمد العتيبي,Grade 1A,145,40,لا يوجد\n' +
-    '1002,خالد عبد الله الدوسري,Grade 1A,148,42,ربو خفيف\n' +
-    '1003,محمد علي الغامدي,Grade 2B,152,46,عذر طبي مؤقت\n' +
-    '1004,سعد بن فهد القحطاني,Grade 2B,150,44,\n';
+    '1001,أحمد محمد العتيبي,الصف الأول / 1,,,\n' +
+    '1002,خالد عبد الله الدوسري,الصف الأول / 1,,,\n' +
+    '1003,محمد علي الغامدي,الصف الأول / 2,,,\n' +
+    '1004,سعد بن فهد القحطاني,الصف الأول / 2,,,\n';
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -190,6 +190,61 @@ export function downloadSampleTemplateCSV() {
   a.download = 'نموذج_استيراد_الطلاب.csv';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+const PLACEHOLDER_STRINGS = new Set([
+  'لا يوجد',
+  'لايوجد',
+  'سليم',
+  'لم ينتهي وقت التسليم',
+  'لم ينته وقت التسليم',
+  'لم ينتهي وقت تسليم',
+  'لم ينته وقت تسليم',
+  'لم ينتهي التسليم',
+  'لم ينته التسليم',
+  'انتهى وقت التسليم',
+  'انتهى وقت تسليم',
+  'وقت التسليم',
+  'لم يتم التسليم',
+  'لم يتم تسليم',
+  'لم يسلم',
+  'غير مسلم',
+  'غير مسلّم',
+  'لم يسلم الواجب',
+  'لم تسلم',
+  'لم يتم الحل',
+  'لم يحل',
+  'لا شيء',
+  'لاشيء',
+  'غير محدد',
+  'none',
+  'null',
+  'undefined',
+  '-',
+  '--',
+  'n/a',
+  'na',
+]);
+
+export function cleanImportedString(val?: string | null): string {
+  if (!val) return '';
+  const trimmed = String(val).trim();
+  const lower = trimmed.toLowerCase();
+  
+  if (PLACEHOLDER_STRINGS.has(lower)) {
+    return '';
+  }
+
+  // Regex check for phrases like "لم ينتهي وقت التسليم" / "لم يتم التسليم" with extra spaces or punctuation
+  if (
+    /^(لم\s*(ينتهي|ينته|يتم|يسلم|تسلم)?\s*(وقت)?\s*(التسليم|تسليم|الواجب|الحل)?)$/i.test(trimmed) ||
+    /وقت\s*التسليم/i.test(trimmed) ||
+    /لم\s*(ينتهي|ينته)\s*وقت/i.test(trimmed)
+  ) {
+    return '';
+  }
+
+  return trimmed;
 }
 
 export interface ParsedStudentRow {
@@ -218,10 +273,124 @@ export interface ParseStudentsResult {
   newClassNames: string[];
 }
 
+export interface ParseStudentsOptions {
+  classMode?: 'from_file' | 'fixed_class';
+  fixedClassName?: string;
+  defaultClassName?: string;
+}
+
+export const recalculateParsedRows = (
+  rawRowsList: ParsedStudentRow[],
+  existingStudents: Student[],
+  existingClasses: ClassItem[]
+): ParseStudentsResult => {
+  const seenInFileNumbers = new Set<string>();
+  const seenInFileKeys = new Set<string>();
+  const newClassesSet = new Set<string>();
+
+  const updatedRows: ParsedStudentRow[] = rawRowsList.map((r) => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const name = r.name.trim();
+    const className = r.className.trim();
+    const studentNumber = r.studentNumber.trim();
+
+    if (!name) {
+      errors.push('اسم الطالب مفقود');
+    }
+    if (!className) {
+      errors.push('اسم الفصل مفقود (يرجى اختيار فصل للطلاب)');
+    }
+
+    const matchedClass = existingClasses.find(
+      (c) => c.name.trim().toLowerCase() === className.toLowerCase()
+    );
+    const isNewClass = !matchedClass && Boolean(className);
+    if (isNewClass) {
+      newClassesSet.add(className);
+    }
+
+    let isDuplicate = false;
+
+    // Check duplicate by number in DB
+    if (studentNumber) {
+      const dbMatchByNumber = existingStudents.some(
+        (s) => s.nationalId && s.nationalId.trim() === studentNumber
+      );
+      if (dbMatchByNumber) {
+        isDuplicate = true;
+        warnings.push(`رقم الطالب (${studentNumber}) موجود مسبقاً في النظام`);
+      }
+    }
+
+    // Check duplicate by Name + Class in DB
+    if (!isDuplicate && name && className) {
+      const dbMatchByName = existingStudents.some((s) => {
+        const cls = existingClasses.find((c) => c.id === s.classId);
+        const stClsName = cls?.name || '';
+        return (
+          s.name.trim().toLowerCase() === name.toLowerCase() &&
+          stClsName.trim().toLowerCase() === className.toLowerCase()
+        );
+      });
+      if (dbMatchByName) {
+        isDuplicate = true;
+        warnings.push(`الطالب (${name}) مسجل مسبقاً بنفس الفصل (${className})`);
+      }
+    }
+
+    // Check duplicate within file
+    const fileKeyNameCls = `${name.toLowerCase()}___${className.toLowerCase()}`;
+    if (studentNumber && seenInFileNumbers.has(studentNumber)) {
+      isDuplicate = true;
+      warnings.push(`رقم الطالب (${studentNumber}) مكرر داخل هذا الملف`);
+    } else if (seenInFileKeys.has(fileKeyNameCls)) {
+      isDuplicate = true;
+      warnings.push(`اسم الطالب مع الفصل مكرر داخل هذا الملف`);
+    }
+
+    if (studentNumber) seenInFileNumbers.add(studentNumber);
+    if (name && className) seenInFileKeys.add(fileKeyNameCls);
+
+    let status: 'valid' | 'duplicate' | 'error' = 'valid';
+    if (errors.length > 0) {
+      status = 'error';
+    } else if (isDuplicate) {
+      status = 'duplicate';
+    }
+
+    return {
+      ...r,
+      name,
+      className,
+      studentNumber,
+      status,
+      isNewClass,
+      errors,
+      warnings,
+    };
+  });
+
+  const validRows = updatedRows.filter((r) => r.status === 'valid');
+  const duplicateRows = updatedRows.filter((r) => r.status === 'duplicate');
+  const errorRows = updatedRows.filter((r) => r.status === 'error');
+
+  return {
+    rows: updatedRows,
+    totalCount: updatedRows.length,
+    validCount: validRows.length,
+    duplicateCount: duplicateRows.length,
+    errorCount: errorRows.length,
+    newClassesCount: newClassesSet.size,
+    newClassNames: Array.from(newClassesSet),
+  };
+};
+
 export const parseStudentsFileAdvanced = async (
   file: File,
   existingStudents: Student[],
-  existingClasses: ClassItem[]
+  existingClasses: ClassItem[],
+  options?: ParseStudentsOptions
 ): Promise<ParseStudentsResult> => {
   let rawRows: any[] = [];
   const fileName = file.name.toLowerCase();
@@ -286,6 +455,7 @@ export const parseStudentsFileAdvanced = async (
           cellText.includes('grade') ||
           cellText.includes('فصل') ||
           cellText.includes('صف') ||
+          cellText.includes('شعب') ||
           cellText.includes('قسم'))
       ) {
         colClass = colIdx;
@@ -335,9 +505,6 @@ export const parseStudentsFileAdvanced = async (
   if (colMedicalNotes === -1) colMedicalNotes = 5;
 
   const parsedRows: ParsedStudentRow[] = [];
-  const seenInFileNumbers = new Set<string>();
-  const seenInFileKeys = new Set<string>();
-  const newClassesSet = new Set<string>();
 
   for (let i = startRowIndex; i < rawRows.length; i++) {
     const rowData = rawRows[i];
@@ -347,12 +514,12 @@ export const parseStudentsFileAdvanced = async (
     const isRowEmpty = rowData.every((cell) => String(cell || '').trim() === '');
     if (isRowEmpty) continue;
 
-    let studentNumber = String(rowData[colStudentNumber] ?? '').trim();
+    let studentNumber = cleanImportedString(rowData[colStudentNumber]);
     let name = String(rowData[colName] ?? '').trim();
     let className = String(rowData[colClass] ?? '').trim();
     let heightRaw = rowData[colHeight];
     let weightRaw = rowData[colWeight];
-    let medicalNotes = String(rowData[colMedicalNotes] ?? '').trim();
+    let medicalNotes = cleanImportedString(rowData[colMedicalNotes]);
 
     // Handling position swaps if column 0 was name and column 1 was number
     if (/^\d+$/.test(className) && !studentNumber) {
@@ -360,14 +527,11 @@ export const parseStudentsFileAdvanced = async (
       className = '';
     }
 
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    if (!name) {
-      errors.push('اسم الطالب مفقود');
-    }
-    if (!className) {
-      errors.push('اسم الفصل مفقود');
+    // Apply class mode options
+    if (options?.classMode === 'fixed_class' && options.fixedClassName) {
+      className = options.fixedClassName.trim();
+    } else if (!className && options?.defaultClassName) {
+      className = options.defaultClassName.trim();
     }
 
     // Parse height & weight if present
@@ -383,65 +547,6 @@ export const parseStudentsFileAdvanced = async (
       weight = !isNaN(numW) ? numW : String(weightRaw).trim();
     }
 
-    // Check Class existence
-    const matchedClass = existingClasses.find(
-      (c) => c.name.trim().toLowerCase() === className.toLowerCase()
-    );
-    const isNewClass = !matchedClass && Boolean(className);
-    if (isNewClass) {
-      newClassesSet.add(className);
-    }
-
-    // Duplicate detection logic
-    let isDuplicate = false;
-
-    // 1. Check duplicate by student number / national ID in app database
-    if (studentNumber) {
-      const dbMatchByNumber = existingStudents.some(
-        (s) => s.nationalId && s.nationalId.trim() === studentNumber
-      );
-      if (dbMatchByNumber) {
-        isDuplicate = true;
-        warnings.push(`رقم الطالب (${studentNumber}) موجود مسبقاً في النظام`);
-      }
-    }
-
-    // 2. Check duplicate by Name + Class in app database
-    if (!isDuplicate && name && className) {
-      const dbMatchByName = existingStudents.some((s) => {
-        const cls = existingClasses.find((c) => c.id === s.classId);
-        const stClsName = cls?.name || '';
-        return (
-          s.name.trim().toLowerCase() === name.toLowerCase() &&
-          stClsName.trim().toLowerCase() === className.toLowerCase()
-        );
-      });
-      if (dbMatchByName) {
-        isDuplicate = true;
-        warnings.push(`الطالب (${name}) مسجل مسبقاً بنفس الفصل (${className})`);
-      }
-    }
-
-    // 3. Check duplicate within the uploaded file itself
-    const fileKeyNameCls = `${name.toLowerCase()}___${className.toLowerCase()}`;
-    if (studentNumber && seenInFileNumbers.has(studentNumber)) {
-      isDuplicate = true;
-      warnings.push(`رقم الطالب (${studentNumber}) مكرر داخل هذا الملف`);
-    } else if (seenInFileKeys.has(fileKeyNameCls)) {
-      isDuplicate = true;
-      warnings.push(`اسم الطالب مع الفصل مكرر داخل هذا الملف`);
-    }
-
-    if (studentNumber) seenInFileNumbers.add(studentNumber);
-    if (name && className) seenInFileKeys.add(fileKeyNameCls);
-
-    let status: 'valid' | 'duplicate' | 'error' = 'valid';
-    if (errors.length > 0) {
-      status = 'error';
-    } else if (isDuplicate) {
-      status = 'duplicate';
-    }
-
     parsedRows.push({
       rowIndex: i + 1,
       studentNumber,
@@ -450,26 +555,14 @@ export const parseStudentsFileAdvanced = async (
       height,
       weight,
       medicalNotes,
-      status,
-      isNewClass,
-      errors,
-      warnings,
+      status: 'valid',
+      isNewClass: false,
+      errors: [],
+      warnings: [],
     });
   }
 
-  const validRows = parsedRows.filter((r) => r.status === 'valid');
-  const duplicateRows = parsedRows.filter((r) => r.status === 'duplicate');
-  const errorRows = parsedRows.filter((r) => r.status === 'error');
-
-  return {
-    rows: parsedRows,
-    totalCount: parsedRows.length,
-    validCount: validRows.length,
-    duplicateCount: duplicateRows.length,
-    errorCount: errorRows.length,
-    newClassesCount: newClassesSet.size,
-    newClassNames: Array.from(newClassesSet),
-  };
+  return recalculateParsedRows(parsedRows, existingStudents, existingClasses);
 };
 
 export const parseStudentsFile = async (
@@ -527,9 +620,9 @@ export const parseStudentsFile = async (
     if (!name) continue;
 
     let rawClassName = String(row[1] || '').trim();
-    let studentNumber = String(row[2] || '').trim();
-    let phone = String(row[3] || '').trim();
-    let medicalNotes = String(row[4] || '').trim();
+    let studentNumber = cleanImportedString(row[2]);
+    let phone = cleanImportedString(row[3]);
+    let medicalNotes = cleanImportedString(row[4]);
 
     if (/^\d+$/.test(rawClassName) && rawClassName.length >= 3 && !studentNumber) {
       studentNumber = rawClassName;

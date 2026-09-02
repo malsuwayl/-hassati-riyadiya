@@ -311,7 +311,7 @@ export const StudentProfileModal: React.FC = () => {
                     <div key={ass.id} className="py-2 flex justify-between">
                       <span className="text-zinc-800">{ass.name}</span>
                       <span className="text-zinc-950 font-black">
-                        {score !== undefined ? `${score} / ${ass.maxScore}` : 'غير مرصود'}
+                        {score !== undefined ? `${score} / ${ass.maxScore}` : '-'}
                       </span>
                     </div>
                   );
@@ -344,7 +344,7 @@ export const StudentProfileModal: React.FC = () => {
                             {String(val)} {evalRes && <span className="text-emerald-700">[{evalRes.levelName}]</span>}
                           </span>
                         ) : (
-                          'غير مقاس'
+                          '-'
                         )}
                       </span>
                     </div>

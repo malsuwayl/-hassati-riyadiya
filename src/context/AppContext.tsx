@@ -9,8 +9,10 @@ import {
   ActiveTab,
   AssessmentItem,
   MeasurementItem,
+  GradingRange,
   TimetableEntry,
   TeacherSettings,
+  PeriodTimeConfig,
 } from '../types';
 import {
   auth,
@@ -30,6 +32,22 @@ import {
   User,
 } from '../lib/firebase';
 
+// Deep sanitize objects for Firestore to prevent "Unsupported field value: undefined" errors
+function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) return null as any;
+  if (data === null || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => (item === undefined ? null : sanitizeForFirestore(item))) as any;
+  }
+  const cleanObj: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      cleanObj[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleanObj as any;
+}
+
 export const DEFAULT_ATTENDANCE_CHECK_ITEMS: AttendanceCheckItem[] = [
   { id: 'uniform', name: 'الزي الرياضي' },
 ];
@@ -43,6 +61,7 @@ import {
   getTodayDateString,
 } from '../data/initialData';
 import { loadIDBItem, saveIDBItem, IDB_KEYS } from '../utils/idbStorage';
+import { cleanImportedString } from '../utils/fileImportExport';
 
 interface ToastInfo {
   id: number;
@@ -81,6 +100,7 @@ interface AppContextType {
   addStudent: (student: Omit<Student, 'id'>) => void;
   updateStudent: (id: string, student: Partial<Student>) => void;
   deleteStudent: (id: string) => void;
+  sortStudentsAlphabetically: (classId?: string, ascending?: boolean) => void;
   batchAddStudents: (
     newStudents: Omit<Student, 'id'>[],
     newClassesToCreate?: Omit<ClassItem, 'id'>[]
@@ -130,6 +150,7 @@ interface AppContextType {
   measurementValues: Record<string, Record<string, string | number>>; // studentId -> itemId -> val
   addMeasurementItem: (item: Omit<MeasurementItem, 'id'>) => void;
   updateMeasurementItem: (id: string, item: Partial<MeasurementItem>) => void;
+  updateMeasurementRanges: (itemId: string, ranges: GradingRange[]) => void;
   deleteMeasurementItem: (id: string) => void;
   setStudentMeasurementValue: (
     studentId: string,
@@ -150,6 +171,12 @@ interface AppContextType {
 
   // Timetable actions
   updateTimetableEntry: (dayOfWeek: number, periodNumber: number, classId: string) => void;
+  applyTimetableBatch: (
+    entries: Array<{ dayOfWeek: number; periodNumber: number; classId: string }>,
+    newClassesToCreate?: Array<{ id: string; name: string }>,
+    periodTimes?: PeriodTimeConfig[]
+  ) => void;
+  clearTimetable: () => void;
 
   // Settings actions
   updateSettings: (newSettings: Partial<TeacherSettings>) => void;
@@ -164,6 +191,12 @@ interface AppContextType {
     timetable?: TimetableEntry[];
     settings?: TeacherSettings;
   }) => void;
+
+  // Persistence & Save status
+  isLocalDataLoaded: boolean;
+  saveStatus: 'saved' | 'saving' | 'synced' | 'error';
+  lastSavedTime: Date | null;
+  forceSaveAll: () => Promise<void>;
 
   // Firebase Auth & Cloud Sync
   user: User | null;
@@ -191,7 +224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [students, setStudents] = useState<Student[]>([]);
   const [dailyLogs, setDailyLogs] = useState<DailyLogRecord[]>([]);
   const [attendanceCheckItems, setAttendanceCheckItems] = useState<AttendanceCheckItem[]>(DEFAULT_ATTENDANCE_CHECK_ITEMS);
-  const [timetable, setTimetable] = useState<TimetableEntry[]>(DEFAULT_TIMETABLE);
+  const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [settings, setSettings] = useState<TeacherSettings>(DEFAULT_TEACHER_SETTINGS);
 
   // Grades
@@ -210,6 +243,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isInitialCloudLoaded, setIsInitialCloudLoaded] = useState<boolean>(false);
+  const [isLocalDataLoaded, setIsLocalDataLoaded] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'synced' | 'error'>('saved');
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
   // Auth Functions
   const loginWithGoogle = async () => {
@@ -269,26 +305,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribeDoc = onSnapshot(
       userDocRef,
       (snapshot) => {
+        if (snapshot.metadata.hasPendingWrites) {
+          // Ignore local pending writes echo to prevent overwriting active typing
+          return;
+        }
         if (snapshot.exists()) {
           const data = snapshot.data();
-          setClasses(data.classes || []);
-          setStudents(data.students || []);
-          setDailyLogs(data.dailyLogs || []);
-          setAttendanceCheckItems(data.attendanceCheckItems || DEFAULT_ATTENDANCE_CHECK_ITEMS);
-          setAssessments(data.assessments || DEFAULT_ASSESSMENTS);
-          setGrades(data.grades || {});
-          setMeasurementItems(data.measurementItems || DEFAULT_MEASUREMENT_ITEMS);
-          setMeasurementValues(data.measurementValues || {});
-          setIncentiveRecords(data.incentiveRecords || []);
-          setTimetable(data.timetable || DEFAULT_TIMETABLE);
-          setSettings(data.settings || {
-            ...DEFAULT_TEACHER_SETTINGS,
-            teacherName: user.displayName || user.email?.split('@')[0] || 'معلم المادة',
-          });
+          if (data.classes !== undefined) setClasses(data.classes || []);
+          if (data.students !== undefined) {
+            const rawList: Student[] = data.students || [];
+            setStudents(
+              rawList.map((st) => ({
+                ...st,
+                medicalNotes: cleanImportedString(st.medicalNotes) || undefined,
+                teacherNotes: cleanImportedString(st.teacherNotes) || undefined,
+              }))
+            );
+          }
+          if (data.dailyLogs !== undefined) setDailyLogs(data.dailyLogs || []);
+          if (data.attendanceCheckItems !== undefined) setAttendanceCheckItems(data.attendanceCheckItems || DEFAULT_ATTENDANCE_CHECK_ITEMS);
+          if (data.assessments !== undefined) setAssessments(data.assessments || DEFAULT_ASSESSMENTS);
+          if (data.grades !== undefined) setGrades(data.grades || {});
+          if (data.measurementItems !== undefined) setMeasurementItems(data.measurementItems || DEFAULT_MEASUREMENT_ITEMS);
+          if (data.measurementValues !== undefined) setMeasurementValues(data.measurementValues || {});
+          if (data.incentiveRecords !== undefined) setIncentiveRecords(data.incentiveRecords || []);
+          if (data.timetable !== undefined) setTimetable(data.timetable || []);
+          if (data.settings !== undefined) {
+            setSettings(data.settings || {
+              ...DEFAULT_TEACHER_SETTINGS,
+              teacherName: user.displayName || user.email?.split('@')[0] || 'معلم المادة',
+            });
+          }
 
           if (data.classes && data.classes.length > 0) {
             setSelectedClassId((prev) => (data.classes.some((c: any) => c.id === prev) ? prev : data.classes[0].id));
           }
+          setSaveStatus('synced');
+          setLastSavedTime(new Date());
         } else {
           // Document does not exist yet in Firestore for this user (brand new account)
           const newTeacherSettings = {
@@ -296,38 +349,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             teacherName: user.displayName || user.email?.split('@')[0] || 'معلم المادة',
           };
           setSettings(newTeacherSettings);
-          setClasses([]);
-          setStudents([]);
-          setDailyLogs([]);
-          setGrades({});
-          setMeasurementValues({});
-          setIncentiveRecords([]);
-          setTimetable(DEFAULT_TIMETABLE);
-          setSelectedClassId('');
-          setSelectedStudentId(null);
 
-          setDoc(userDocRef, {
-            userId: user.uid,
-            classes: [],
-            students: [],
-            dailyLogs: [],
-            attendanceCheckItems: DEFAULT_ATTENDANCE_CHECK_ITEMS,
-            assessments: DEFAULT_ASSESSMENTS,
-            grades: {},
-            measurementItems: DEFAULT_MEASUREMENT_ITEMS,
-            measurementValues: {},
-            incentiveRecords: [],
-            timetable: DEFAULT_TIMETABLE,
-            settings: newTeacherSettings,
-            updatedAt: new Date().toISOString(),
-          }).catch((err) => console.error('Error creating user initial Firestore doc:', err));
+          setDoc(
+            userDocRef,
+            sanitizeForFirestore({
+              userId: user.uid,
+              classes: classes.length > 0 ? classes : [],
+              students: students.length > 0 ? students : [],
+              dailyLogs: dailyLogs.length > 0 ? dailyLogs : [],
+              attendanceCheckItems: attendanceCheckItems || DEFAULT_ATTENDANCE_CHECK_ITEMS,
+              assessments: assessments || DEFAULT_ASSESSMENTS,
+              grades: grades || {},
+              measurementItems: measurementItems || DEFAULT_MEASUREMENT_ITEMS,
+              measurementValues: measurementValues || {},
+              incentiveRecords: incentiveRecords || [],
+              timetable: timetable || [],
+              settings: newTeacherSettings,
+              updatedAt: new Date().toISOString(),
+            })
+          ).catch((err) => console.error('Error creating user initial Firestore doc:', err));
 
           // Also write user profile record
-          setDoc(doc(db, 'users', user.uid), {
-            email: user.email || '',
-            displayName: user.displayName || '',
-            createdAt: new Date().toISOString(),
-          }).catch(() => {});
+          setDoc(
+            doc(db, 'users', user.uid),
+            sanitizeForFirestore({
+              email: user.email || '',
+              displayName: user.displayName || '',
+              createdAt: new Date().toISOString(),
+            })
+          ).catch(() => {});
         }
         setIsInitialCloudLoaded(true);
       },
@@ -341,12 +391,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync changes to Firestore when User is logged in
   useEffect(() => {
-    if (!user || !isInitialCloudLoaded) return;
+    if (!user || !isInitialCloudLoaded || !isLocalDataLoaded) return;
+    setSaveStatus('saving');
     const timeout = setTimeout(() => {
       const userDocRef = doc(db, 'user_data', user.uid);
       setDoc(
         userDocRef,
-        {
+        sanitizeForFirestore({
           userId: user.uid,
           classes,
           students,
@@ -360,15 +411,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           timetable,
           settings,
           updatedAt: new Date().toISOString(),
-        },
+        }),
         { merge: true }
-      ).catch((err) => console.error('Error syncing to Cloud:', err));
-    }, 800);
+      )
+        .then(() => {
+          setSaveStatus('synced');
+          setLastSavedTime(new Date());
+        })
+        .catch((err) => {
+          console.error('Error syncing to Cloud:', err);
+          setSaveStatus('error');
+        });
+    }, 1000);
 
     return () => clearTimeout(timeout);
   }, [
     user,
     isInitialCloudLoaded,
+    isLocalDataLoaded,
     classes,
     students,
     dailyLogs,
@@ -413,8 +473,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const loadAll = async () => {
       try {
-        const savedClasses = await loadIDBItem<ClassItem[]>(IDB_KEYS.CLASSES, SAMPLE_DEMO_CLASSES);
-        const savedStudents = await loadIDBItem<Student[]>(IDB_KEYS.STUDENTS, SAMPLE_DEMO_STUDENTS);
+        const hasInitialized = await loadIDBItem<boolean>('hosati_initialized_v2', false);
+        const savedClasses = await loadIDBItem<ClassItem[]>(IDB_KEYS.CLASSES, null as any);
+        const savedStudents = await loadIDBItem<Student[]>(IDB_KEYS.STUDENTS, null as any);
         const savedLogs = await loadIDBItem<DailyLogRecord[]>(IDB_KEYS.LOGS, []);
         const savedAssessments = await loadIDBItem<AssessmentItem[]>('hosati_assessments', DEFAULT_ASSESSMENTS);
         const savedAttItems = await loadIDBItem<AttendanceCheckItem[]>('hosati_att_items', DEFAULT_ATTENDANCE_CHECK_ITEMS);
@@ -422,11 +483,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const savedMeasItems = await loadIDBItem<MeasurementItem[]>('hosati_meas_items', DEFAULT_MEASUREMENT_ITEMS);
         const savedMeasVals = await loadIDBItem<Record<string, Record<string, string | number>>>('hosati_meas_vals', {});
         const savedIncentives = await loadIDBItem<IncentiveRecord[]>('hosati_incentives', []);
-        const savedTimetable = await loadIDBItem<TimetableEntry[]>('hosati_timetable', DEFAULT_TIMETABLE);
+        const savedTimetable = await loadIDBItem<TimetableEntry[]>('hosati_timetable', []);
         const savedSettings = await loadIDBItem<TeacherSettings>('hosati_settings', DEFAULT_TEACHER_SETTINGS);
 
-        const activeClasses = savedClasses && savedClasses.length > 0 ? savedClasses : SAMPLE_DEMO_CLASSES;
-        const activeStudents = savedStudents && savedStudents.length > 0 ? savedStudents : SAMPLE_DEMO_STUDENTS;
+        let activeClasses: ClassItem[] = [];
+        let activeStudents: Student[] = [];
+
+        if (!hasInitialized && (!savedClasses || savedClasses.length === 0)) {
+          // Brand new first visit
+          activeClasses = SAMPLE_DEMO_CLASSES;
+          activeStudents = SAMPLE_DEMO_STUDENTS;
+          await saveIDBItem('hosati_initialized_v2', true);
+        } else {
+          activeClasses = savedClasses || [];
+          activeStudents = (savedStudents || []).map((st) => ({
+            ...st,
+            medicalNotes: cleanImportedString(st.medicalNotes) || undefined,
+            teacherNotes: cleanImportedString(st.teacherNotes) || undefined,
+          }));
+        }
+
+        // Filter timetable entries so demo entries don't persist if classes changed
+        const activeClassIds = new Set(activeClasses.map((c) => c.id));
+        const activeClassNames = new Set(activeClasses.map((c) => c.name.trim().toLowerCase()));
+        const cleanTimetable = (Array.isArray(savedTimetable) ? savedTimetable : []).filter(
+          (entry) =>
+            entry &&
+            entry.classId &&
+            (activeClassIds.has(entry.classId) ||
+              activeClassNames.has(entry.classId.trim().toLowerCase()) ||
+              // If it's a valid string name
+              entry.classId.length > 0)
+        );
 
         setClasses(activeClasses);
         setStudents(activeStudents);
@@ -437,66 +525,160 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setMeasurementItems(savedMeasItems && savedMeasItems.length > 0 ? savedMeasItems : DEFAULT_MEASUREMENT_ITEMS);
         setMeasurementValues(savedMeasVals || {});
         setIncentiveRecords(savedIncentives || []);
-        setTimetable(savedTimetable && savedTimetable.length > 0 ? savedTimetable : DEFAULT_TIMETABLE);
+        setTimetable(cleanTimetable);
         setSettings(savedSettings || DEFAULT_TEACHER_SETTINGS);
 
         if (activeClasses.length > 0) {
           setSelectedClassId(activeClasses[0].id);
         }
+        setIsLocalDataLoaded(true);
+        setSaveStatus('saved');
+        setLastSavedTime(new Date());
       } catch (err) {
-        console.error('Error loading data:', err);
+        console.error('Error loading data from IDB:', err);
         setClasses(SAMPLE_DEMO_CLASSES);
         setStudents(SAMPLE_DEMO_STUDENTS);
-        setSelectedClassId(SAMPLE_DEMO_CLASSES[0].id);
+        setSelectedClassId(SAMPLE_DEMO_CLASSES[0]?.id || '');
+        setIsLocalDataLoaded(true);
       }
     };
     loadAll();
   }, []);
 
-  // Sync state changes to IDB automatically (No save button required)
+  // Sync state changes to IDB automatically with guard
   useEffect(() => {
-    if (classes.length > 0) saveIDBItem(IDB_KEYS.CLASSES, classes);
-  }, [classes]);
+    if (!isLocalDataLoaded) return;
+    saveIDBItem(IDB_KEYS.CLASSES, classes);
+    saveIDBItem('hosati_initialized_v2', true);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [classes, isLocalDataLoaded]);
 
   useEffect(() => {
-    if (students.length > 0) saveIDBItem(IDB_KEYS.STUDENTS, students);
-  }, [students]);
+    if (!isLocalDataLoaded) return;
+    saveIDBItem(IDB_KEYS.STUDENTS, students);
+    saveIDBItem('hosati_initialized_v2', true);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [students, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem(IDB_KEYS.LOGS, dailyLogs);
-  }, [dailyLogs]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [dailyLogs, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_att_items', attendanceCheckItems);
-  }, [attendanceCheckItems]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [attendanceCheckItems, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_assessments', assessments);
-  }, [assessments]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [assessments, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_grades', grades);
-  }, [grades]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [grades, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_meas_items', measurementItems);
-  }, [measurementItems]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [measurementItems, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_meas_vals', measurementValues);
-  }, [measurementValues]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [measurementValues, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_incentives', incentiveRecords);
-  }, [incentiveRecords]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [incentiveRecords, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_timetable', timetable);
-  }, [timetable]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [timetable, isLocalDataLoaded]);
 
   useEffect(() => {
+    if (!isLocalDataLoaded) return;
     saveIDBItem('hosati_settings', settings);
-  }, [settings]);
+    setSaveStatus('saved');
+    setLastSavedTime(new Date());
+  }, [settings, isLocalDataLoaded]);
+
+  // Force Immediate Save All Action
+  const forceSaveAll = async () => {
+    setSaveStatus('saving');
+    try {
+      await Promise.all([
+        saveIDBItem(IDB_KEYS.CLASSES, classes),
+        saveIDBItem(IDB_KEYS.STUDENTS, students),
+        saveIDBItem(IDB_KEYS.LOGS, dailyLogs),
+        saveIDBItem('hosati_att_items', attendanceCheckItems),
+        saveIDBItem('hosati_assessments', assessments),
+        saveIDBItem('hosati_grades', grades),
+        saveIDBItem('hosati_meas_items', measurementItems),
+        saveIDBItem('hosati_meas_vals', measurementValues),
+        saveIDBItem('hosati_incentives', incentiveRecords),
+        saveIDBItem('hosati_timetable', timetable),
+        saveIDBItem('hosati_settings', settings),
+        saveIDBItem('hosati_initialized_v2', true),
+      ]);
+
+      if (user) {
+        const userDocRef = doc(db, 'user_data', user.uid);
+        await setDoc(
+          userDocRef,
+          {
+            userId: user.uid,
+            classes,
+            students,
+            dailyLogs,
+            attendanceCheckItems,
+            assessments,
+            grades,
+            measurementItems,
+            measurementValues,
+            incentiveRecords,
+            timetable,
+            settings,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+        setSaveStatus('synced');
+      } else {
+        setSaveStatus('saved');
+      }
+
+      setLastSavedTime(new Date());
+      triggerHaptic(30);
+      showToast('تم حفظ وتأكيد جميع البيانات بنجاح 💾✨', 'success');
+    } catch (err) {
+      console.error('Error in forceSaveAll:', err);
+      setSaveStatus('error');
+      showToast('حدث خطأ أثناء الحفظ، تم الحفظ محلياً', 'warning');
+    }
+  };
 
   // Class actions
   const addClass = (name: string) => {
@@ -538,7 +720,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteStudent = (id: string) => {
     setStudents((prev) => prev.filter((s) => s.id !== id));
-    showToast('تم حذف الطالب', 'info');
+    setDailyLogs((prev) => prev.filter((l) => l.studentId !== id));
+    setIncentiveRecords((prev) => prev.filter((r) => r.studentId !== id));
+    setGrades((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+    setMeasurementValues((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+    if (selectedStudentId === id) {
+      setSelectedStudentId(null);
+    }
+    showToast('تم حذف الطالب وجميع سجلاته بنجاح 🗑️', 'info');
+  };
+
+  const sortStudentsAlphabetically = (classId?: string, ascending = true) => {
+    setStudents((prev) => {
+      if (classId) {
+        const classStudents = prev.filter((s) => s.classId === classId);
+        const otherStudents = prev.filter((s) => s.classId !== classId);
+        const sorted = [...classStudents].sort((a, b) => {
+          const comp = a.name.trim().localeCompare(b.name.trim(), 'ar', { sensitivity: 'base', numeric: true });
+          return ascending ? comp : -comp;
+        });
+        return [...otherStudents, ...sorted];
+      } else {
+        return [...prev].sort((a, b) => {
+          if (a.classId !== b.classId) {
+            return a.classId.localeCompare(b.classId);
+          }
+          const comp = a.name.trim().localeCompare(b.name.trim(), 'ar', { sensitivity: 'base', numeric: true });
+          return ascending ? comp : -comp;
+        });
+      }
+    });
+    triggerHaptic(25);
+    showToast('تم ترتيب أسماء الطلاب أبجدياً (أ - ي) بنجاح 🔤', 'success');
   };
 
   const batchAddStudents = (
@@ -615,12 +836,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'cls-1';
       const stId = `st-imp-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 5)}`;
 
+      const cleanMedNotes = cleanImportedString(r.medicalNotes) || undefined;
+      const cleanNationalId = cleanImportedString(r.studentNumber) || undefined;
+
       const newStudent: Student = {
         id: stId,
         name: r.name.trim(),
         classId: clsId,
-        nationalId: r.studentNumber || undefined,
-        medicalNotes: r.medicalNotes || undefined,
+        nationalId: cleanNationalId,
+        medicalNotes: cleanMedNotes,
       };
 
       newStudentsList.push(newStudent);
@@ -916,6 +1140,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('تم حذف بند القياس', 'info');
   };
 
+  const updateMeasurementRanges = (
+    itemId: string,
+    ranges: GradingRange[]
+  ) => {
+    setMeasurementItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              gradingRanges: ranges,
+            }
+          : item
+      )
+    );
+    triggerHaptic(20);
+    showToast('تم حفظ معايير المستويات والدرجات بنجاح ✓', 'success');
+  };
+
   const setStudentMeasurementValue = (
     studentId: string,
     itemId: string,
@@ -1008,6 +1250,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('تم تحديث جدول الحصص', 'success');
   };
 
+  const applyTimetableBatch = (
+    entries: Array<{ dayOfWeek: number; periodNumber: number; classId: string }>,
+    newClassesToCreate?: Array<{ id: string; name: string }>,
+    periodTimes?: PeriodTimeConfig[]
+  ) => {
+    if (newClassesToCreate && newClassesToCreate.length > 0) {
+      setClasses((prev) => {
+        const existingNames = new Set(prev.map((c) => c.name.trim().toLowerCase()));
+        const filtered = newClassesToCreate.filter(
+          (c) => !existingNames.has(c.name.trim().toLowerCase())
+        );
+        return [...prev, ...filtered];
+      });
+    }
+
+    const newTimetable: TimetableEntry[] = entries.map((e, idx) => ({
+      id: `t-${e.dayOfWeek}-${e.periodNumber}-${Date.now()}-${idx}`,
+      dayOfWeek: e.dayOfWeek,
+      periodNumber: e.periodNumber,
+      classId: e.classId,
+    }));
+
+    setTimetable(newTimetable);
+
+    if (periodTimes && periodTimes.length > 0) {
+      setSettings((prev) => ({
+        ...prev,
+        periodTimes,
+      }));
+    }
+
+    showToast(`تم حفظ وتطبيق جدول الحصص بنجاح (${newTimetable.length} حصة) 📅✨`, 'success');
+  };
+
+  const clearTimetable = () => {
+    setTimetable([]);
+    showToast('تم إفراغ جدول الحصص', 'info');
+  };
+
   // Settings
   const updateSettings = (newSettings: Partial<TeacherSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
@@ -1058,6 +1339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addStudent,
         updateStudent,
         deleteStudent,
+        sortStudentsAlphabetically,
         batchAddStudents,
         importStudentsBatch,
 
@@ -1083,6 +1365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         measurementValues,
         addMeasurementItem,
         updateMeasurementItem,
+        updateMeasurementRanges,
         deleteMeasurementItem,
         setStudentMeasurementValue,
 
@@ -1092,9 +1375,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getStudentIncentiveSummary,
 
         updateTimetableEntry,
+        applyTimetableBatch,
+        clearTimetable,
 
         updateSettings,
         restoreData,
+
+        // Persistence & Save status
+        isLocalDataLoaded,
+        saveStatus,
+        lastSavedTime,
+        forceSaveAll,
 
         // Firebase Auth & Cloud Sync
         user,

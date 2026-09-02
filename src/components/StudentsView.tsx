@@ -14,6 +14,8 @@ import {
   FileText,
   X,
   ChevronLeft,
+  ArrowDownAZ,
+  Save,
 } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
 import { exportToExcel } from '../utils/fileImportExport';
@@ -31,6 +33,7 @@ export const StudentsView: React.FC = () => {
     addStudent,
     updateStudent,
     deleteStudent,
+    sortStudentsAlphabetically,
     setSelectedStudentId,
     dailyLogs,
     measurementItems,
@@ -41,6 +44,8 @@ export const StudentsView: React.FC = () => {
     settings,
     showToast,
     triggerHaptic,
+    forceSaveAll,
+    saveStatus,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'students' | 'classes'>('students');
@@ -279,18 +284,47 @@ export const StudentsView: React.FC = () => {
           <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-xs space-y-3">
             {/* Primary Add Button & Import/Export Tools */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-              {/* Primary Add Student Button */}
-              <button
-                type="button"
-                onClick={handleOpenAddModal}
-                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.98] shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>إضافة طالب جديد</span>
-              </button>
+              {/* Primary Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenAddModal}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.98] shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة طالب جديد</span>
+                </button>
+
+                {/* Alphabetical Sort Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    sortStudentsAlphabetically(filterClassId !== 'all' ? filterClassId : undefined);
+                  }}
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200/90 font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95 shrink-0"
+                  title="ترتيب أسماء الطلاب أبجدياً من أ إلى ي"
+                >
+                  <ArrowDownAZ className="w-4 h-4 text-purple-700" />
+                  <span>ترتيب أبجدي (أ - ي) 🔤</span>
+                </button>
+              </div>
 
               {/* Utility Tools Bar */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={forceSaveAll}
+                  className={`border px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-2xs active:scale-95 ${
+                    saveStatus === 'saving'
+                      ? 'bg-amber-50 text-amber-900 border-amber-200'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-300'
+                  }`}
+                  title="حفظ فوري وتأكيد جميع البيانات محلياً وسحابياً"
+                >
+                  <Save className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{saveStatus === 'saving' ? 'جاري الحفظ...' : 'حفظ البيانات 💾'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -404,11 +438,20 @@ export const StudentsView: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => deleteStudent(st.id)}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-zinc-100 transition-colors"
-                        title="حذف"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `هل أنت متأكد من حذف الطالب "${st.name}" وجميع بيانات الحضور والدرجات والقياسات التابعة له؟`
+                            )
+                          ) {
+                            triggerHaptic(30);
+                            deleteStudent(st.id);
+                          }
+                        }}
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="حذف الطالب وسجلاته"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -688,6 +731,7 @@ export const StudentsView: React.FC = () => {
       <ImportStudentsModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+        defaultClassId={filterClassId !== 'all' ? filterClassId : selectedClassId}
       />
     </div>
   );

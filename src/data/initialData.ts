@@ -232,25 +232,4 @@ export const DEFAULT_MEASUREMENT_ITEMS: MeasurementItem[] = [
   },
 ];
 
-export const DEFAULT_TIMETABLE: TimetableEntry[] = [
-  // Sunday (0)
-  { id: 't-1', dayOfWeek: 0, periodNumber: 1, classId: 'class-1' },
-  { id: 't-2', dayOfWeek: 0, periodNumber: 2, classId: 'class-2' },
-  { id: 't-3', dayOfWeek: 0, periodNumber: 4, classId: 'class-3' },
-
-  // Monday (1)
-  { id: 't-4', dayOfWeek: 1, periodNumber: 1, classId: 'class-2' },
-  { id: 't-5', dayOfWeek: 1, periodNumber: 3, classId: 'class-1' },
-
-  // Tuesday (2)
-  { id: 't-6', dayOfWeek: 2, periodNumber: 2, classId: 'class-3' },
-  { id: 't-7', dayOfWeek: 2, periodNumber: 5, classId: 'class-1' },
-
-  // Wednesday (3)
-  { id: 't-8', dayOfWeek: 3, periodNumber: 1, classId: 'class-1' },
-  { id: 't-9', dayOfWeek: 3, periodNumber: 4, classId: 'class-2' },
-
-  // Thursday (4)
-  { id: 't-10', dayOfWeek: 4, periodNumber: 2, classId: 'class-3' },
-  { id: 't-11', dayOfWeek: 4, periodNumber: 3, classId: 'class-2' },
-];
+export const DEFAULT_TIMETABLE: TimetableEntry[] = [];

@@ -102,43 +102,43 @@ export const BottomNav: React.FC = () => {
     {
       id: 'home',
       label: 'الرئيسية',
-      icon: <Home className="w-4 h-4 sm:w-5 sm:h-5" />,
+      icon: <Home className="w-5 h-5 sm:w-6 sm:h-6" />,
     },
     {
       id: 'attendance',
       label: 'التحضير',
-      icon: <CheckCheck className="w-4 h-4 sm:w-5 sm:h-5" />,
+      icon: <CheckCheck className="w-5 h-5 sm:w-6 sm:h-6" />,
     },
     {
       id: 'grades',
       label: 'الدرجات',
-      icon: <Award className="w-4 h-4 sm:w-5 sm:h-5" />,
+      icon: <Award className="w-5 h-5 sm:w-6 sm:h-6" />,
     },
     {
       id: 'measurements',
       label: 'القياسات',
-      icon: <Activity className="w-4 h-4 sm:w-5 sm:h-5" />,
+      icon: <Activity className="w-5 h-5 sm:w-6 sm:h-6" />,
     },
     {
       id: 'incentives',
       label: 'التحفيز',
-      icon: <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />,
+      icon: <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />,
     },
     {
       id: 'students',
       label: 'الطلاب',
-      icon: <Users className="w-4 h-4 sm:w-5 sm:h-5" />,
+      icon: <Users className="w-5 h-5 sm:w-6 sm:h-6" />,
     },
     {
       id: 'statistics',
       label: 'التقارير',
-      icon: <BarChart2 className="w-4 h-4 sm:w-5 sm:h-5" />,
+      icon: <BarChart2 className="w-5 h-5 sm:w-6 sm:h-6" />,
     },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 pb-safe font-sans shadow-lg">
-      <div className="max-w-2xl mx-auto grid grid-cols-7 px-1 py-1.5">
+      <div className="max-w-2xl mx-auto grid grid-cols-7 px-1 py-2">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -149,14 +149,14 @@ export const BottomNav: React.FC = () => {
                 triggerHaptic(15);
                 setActiveTab(item.id);
               }}
-              className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl transition-all cursor-pointer ${
+              className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all cursor-pointer ${
                 isActive
-                  ? 'text-indigo-700 font-black bg-indigo-50/90 shadow-2xs border border-indigo-200/60'
+                  ? 'text-indigo-700 font-black bg-indigo-50 shadow-xs border-2 border-indigo-300 scale-105'
                   : 'text-slate-500 hover:text-slate-900 font-bold'
               }`}
             >
               {item.icon}
-              <span className="text-[9px] sm:text-[10px] mt-0.5 leading-none font-extrabold truncate max-w-full">
+              <span className="text-[10px] sm:text-xs mt-1 leading-none font-black truncate max-w-full">
                 {item.label}
               </span>
             </button>

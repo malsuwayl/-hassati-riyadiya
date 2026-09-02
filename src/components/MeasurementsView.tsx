@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { MeasurementUnit, MeasurementInputType } from '../types';
 import {
@@ -18,6 +18,8 @@ import {
   Flame,
   Sparkles,
   FileText,
+  Save,
+  CheckCircle2,
 } from 'lucide-react';
 import { generateMeasurementsPDFReport } from '../utils/pdfExport';
 import {
@@ -46,6 +48,8 @@ export const MeasurementsView: React.FC = () => {
     setSelectedStudentId,
     showToast,
     settings,
+    forceSaveAll,
+    saveStatus,
   } = useApp();
 
   const [viewMode, setViewMode] = useState<'sheet' | 'analytics' | 'ranges'>('sheet');
@@ -92,17 +96,44 @@ export const MeasurementsView: React.FC = () => {
   const activeRangeItem = measurementItems.find((i) => i.id === selectedItemIdForRanges) || measurementItems[0];
   const [tempRanges, setTempRanges] = useState<
     { minVal: number; maxVal: number; score: number; levelName: string }[]
-  >(
-    activeRangeItem?.gradingRanges
-      ? activeRangeItem.gradingRanges.map((r) => ({ ...r }))
-      : [
-          { minVal: 0, maxVal: 10, score: 10, levelName: 'ممتاز' },
-          { minVal: 10.1, maxVal: 20, score: 8, levelName: 'جيد' },
-          { minVal: 20.1, maxVal: 30, score: 5, levelName: 'ضعيف' },
-        ]
-  );
+  >([]);
+
+  // Keep tempRanges synced with activeRangeItem
+  useEffect(() => {
+    if (activeRangeItem?.gradingRanges && activeRangeItem.gradingRanges.length > 0) {
+      setTempRanges(activeRangeItem.gradingRanges.map((r) => ({ ...r })));
+    } else {
+      setTempRanges([
+        { minVal: 0, maxVal: 10, score: 10, levelName: 'ممتاز' },
+        { minVal: 10.1, maxVal: 20, score: 8, levelName: 'جيد جداً' },
+        { minVal: 20.1, maxVal: 30, score: 6, levelName: 'جيد' },
+        { minVal: 30.1, maxVal: 40, score: 4, levelName: 'مقبول' },
+        { minVal: 40.1, maxVal: 60, score: 2, levelName: 'ضعيف' },
+      ]);
+    }
+  }, [activeRangeItem?.id]);
 
   const classStudents = students.filter((s) => s.classId === selectedClassId);
+
+  const handleAddNewRangeRow = () => {
+    triggerHaptic(15);
+    setTempRanges([
+      ...tempRanges,
+      { minVal: 0, maxVal: 0, score: 0, levelName: 'مستوى جديد' },
+    ]);
+  };
+
+  const handleDeleteRangeRow = (index: number) => {
+    triggerHaptic(20);
+    setTempRanges(tempRanges.filter((_, i) => i !== index));
+  };
+
+  const handleDeleteMeasurementItem = (id: string, name: string) => {
+    if (window.confirm(`هل أنت متأكد من حذف عنصر القياس "${name}"؟`)) {
+      triggerHaptic(30);
+      deleteMeasurementItem(id);
+    }
+  };
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,23 +198,16 @@ export const MeasurementsView: React.FC = () => {
     obese: studentSummaries.filter((s) => s.bmi?.statusAr === 'سمنة').length,
   };
 
-  const handleDeleteMeasurementItem = (id: string, name: string) => {
-    if (window.confirm(`هل أنت تأكد من إلغاء/حذف بند القياس البدني "${name}"؟`)) {
-      triggerHaptic(30);
-      deleteMeasurementItem(id);
-    }
-  };
-
   return (
     <div className="max-w-5xl mx-auto px-3 py-3 font-sans space-y-3">
       {/* Top Controls Bar */}
       <div className="bg-white rounded-xl p-3 border border-zinc-200 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <label className="text-xs font-black text-zinc-600">الفصل:</label>
+          <label className="text-xs font-black text-zinc-700">الفصل:</label>
           <select
             value={selectedClassId}
             onChange={(e) => setSelectedClassId(e.target.value)}
-            className="bg-zinc-50 border border-zinc-200 text-zinc-900 font-extrabold text-xs rounded-lg px-2.5 py-1.5 outline-none"
+            className="bg-zinc-50 border border-zinc-200 text-zinc-900 font-extrabold text-xs rounded-lg px-2.5 py-1.5 outline-none cursor-pointer"
           >
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
@@ -235,16 +259,33 @@ export const MeasurementsView: React.FC = () => {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={handleExportMeasurementsPDF}
-          disabled={isExportingPDF}
-          className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
-          title="تصدير كشف القياسات البدنية كملف PDF"
-        >
-          <FileText className="w-4 h-4 text-emerald-600" />
-          <span>{isExportingPDF ? 'جاري التصدير...' : 'تصدير PDF 📄'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Quick Save Button */}
+          <button
+            type="button"
+            onClick={forceSaveAll}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 border ${
+              saveStatus === 'saving'
+                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-300'
+            }`}
+            title="حفظ فوري لبيانات القياسات البدنية"
+          >
+            <Save className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{saveStatus === 'saving' ? 'جاري الحفظ...' : 'حفظ البيانات 💾'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportMeasurementsPDF}
+            disabled={isExportingPDF}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
+            title="تصدير كشف القياسات البدنية كملف PDF"
+          >
+            <FileText className="w-4 h-4 text-emerald-600" />
+            <span>{isExportingPDF ? 'جاري...' : 'تصدير PDF 📄'}</span>
+          </button>
+        </div>
       </div>
 
       {/* SPREADSHEET VIEW */}
@@ -812,20 +853,16 @@ export const MeasurementsView: React.FC = () => {
 
       {/* RANGES EDITOR VIEW */}
       {viewMode === 'ranges' && (
-        <div className="bg-white p-4 rounded-xl border border-zinc-200 space-y-3 text-right">
+        <div className="bg-white p-4 rounded-xl border border-zinc-200 space-y-4 text-right">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <label className="text-xs font-black text-zinc-600">حدد عنصر القياس:</label>
+              <label className="text-xs font-black text-zinc-700">حدد عنصر القياس:</label>
               <select
                 value={selectedItemIdForRanges}
                 onChange={(e) => {
                   setSelectedItemIdForRanges(e.target.value);
-                  const item = measurementItems.find((i) => i.id === e.target.value);
-                  if (item?.gradingRanges) {
-                    setTempRanges(item.gradingRanges.map((r) => ({ ...r })));
-                  }
                 }}
-                className="bg-zinc-50 border border-zinc-200 text-xs font-extrabold rounded-lg px-2.5 py-1.5 outline-none"
+                className="bg-zinc-50 border border-zinc-200 text-xs font-extrabold rounded-lg px-2.5 py-1.5 outline-none cursor-pointer"
               >
                 {measurementItems.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -835,89 +872,129 @@ export const MeasurementsView: React.FC = () => {
               </select>
             </div>
 
-            {activeRangeItem && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handleDeleteMeasurementItem(activeRangeItem.id, activeRangeItem.name)}
-                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
-                title="إلغاء/حذف هذا العنصر"
+                onClick={handleAddNewRangeRow}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-black px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-95"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>إلغاء البند</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>إضافة مستوى جديد (+)</span>
               </button>
-            )}
+
+              {activeRangeItem && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteMeasurementItem(activeRangeItem.id, activeRangeItem.name)}
+                  className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  title="إلغاء/حذف هذا العنصر"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>إلغاء البند</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <h3 className="text-xs font-black text-zinc-900 pt-2 border-t border-zinc-100">
-            تحديد درجات ومستويات المعايير (ممتاز، جيد جداً، جيد، مقبول، ضعيف)
-          </h3>
+          <div className="border-t border-zinc-100 pt-2">
+            <h3 className="text-xs font-black text-zinc-900">
+              تحديد درجات ومستويات المعايير (ممتاز، جيد جداً، جيد، مقبول، ضعيف)
+            </h3>
+            <p className="text-[11px] font-bold text-zinc-500 mt-0.5">
+              يمكنك تخصيص المدى الرقمي لكل مستوى والدرجة المستحقة للطالب
+            </p>
+          </div>
 
           <div className="space-y-2">
             {tempRanges.map((r, idx) => (
-              <div key={idx} className="grid grid-cols-4 gap-2 bg-zinc-50 p-2 rounded-lg border border-zinc-200">
+              <div key={idx} className="grid grid-cols-1 sm:grid-cols-5 gap-2 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 items-center">
                 <div>
-                  <label className="text-[10px] font-extrabold text-zinc-400 block mb-1">المستوى</label>
+                  <label className="text-[10px] font-extrabold text-zinc-500 block mb-1">اسم المستوى</label>
                   <input
                     type="text"
                     value={r.levelName}
+                    placeholder="مثال: ممتاز"
                     onChange={(e) => {
                       const copy = [...tempRanges];
                       copy[idx].levelName = e.target.value;
                       setTempRanges(copy);
                     }}
-                    className="w-full bg-white border border-zinc-200 text-xs font-bold rounded px-2 py-1 outline-none"
+                    className="w-full bg-white border border-zinc-200 text-xs font-black rounded-lg px-2 py-1.5 outline-none focus:border-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-extrabold text-zinc-400 block mb-1">من قيمة</label>
+                  <label className="text-[10px] font-extrabold text-zinc-500 block mb-1">من قيمة</label>
                   <input
                     type="number"
+                    step="any"
                     value={r.minVal}
                     onChange={(e) => {
                       const copy = [...tempRanges];
                       copy[idx].minVal = parseFloat(e.target.value) || 0;
                       setTempRanges(copy);
                     }}
-                    className="w-full bg-white border border-zinc-200 text-xs font-bold rounded px-2 py-1 outline-none"
+                    className="w-full bg-white border border-zinc-200 text-xs font-bold rounded-lg px-2 py-1.5 outline-none focus:border-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-extrabold text-zinc-400 block mb-1">إلى قيمة</label>
+                  <label className="text-[10px] font-extrabold text-zinc-500 block mb-1">إلى قيمة</label>
                   <input
                     type="number"
+                    step="any"
                     value={r.maxVal}
                     onChange={(e) => {
                       const copy = [...tempRanges];
                       copy[idx].maxVal = parseFloat(e.target.value) || 0;
                       setTempRanges(copy);
                     }}
-                    className="w-full bg-white border border-zinc-200 text-xs font-bold rounded px-2 py-1 outline-none"
+                    className="w-full bg-white border border-zinc-200 text-xs font-bold rounded-lg px-2 py-1.5 outline-none focus:border-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-extrabold text-zinc-400 block mb-1">الدرجة المستحقة</label>
+                  <label className="text-[10px] font-extrabold text-zinc-500 block mb-1">الدرجة المستحقة</label>
                   <input
                     type="number"
+                    step="any"
                     value={r.score}
                     onChange={(e) => {
                       const copy = [...tempRanges];
                       copy[idx].score = parseFloat(e.target.value) || 0;
                       setTempRanges(copy);
                     }}
-                    className="w-full bg-white border border-zinc-200 text-xs font-bold rounded px-2 py-1 outline-none"
+                    className="w-full bg-white border border-zinc-200 text-xs font-bold rounded-lg px-2 py-1.5 outline-none focus:border-emerald-600"
                   />
+                </div>
+                <div className="flex justify-end sm:justify-center pt-2 sm:pt-4">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRangeRow(idx)}
+                    className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    title="حذف هذا المستوى"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-between items-center pt-3 border-t border-zinc-100">
+            <button
+              type="button"
+              onClick={handleAddNewRangeRow}
+              className="text-emerald-700 hover:text-emerald-900 text-xs font-black flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة مستوى جديد</span>
+            </button>
+
             <button
               type="button"
               onClick={handleSaveRanges}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-4 py-2 rounded-lg cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-5 py-2.5 rounded-xl cursor-pointer shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
             >
-              حفظ معايير المستويات
+              <Save className="w-4 h-4" />
+              <span>حفظ معايير المستويات 💾</span>
             </button>
           </div>
         </div>

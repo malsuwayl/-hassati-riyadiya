@@ -32,8 +32,10 @@ import {
   Smartphone,
   Check,
   Laptop,
+  Sparkles,
 } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
+import { ImportTimetableModal } from './ImportTimetableModal';
 import {
   DEFAULT_PERIOD_TIMES,
   DEFAULT_NOTIFICATION_SETTINGS,
@@ -53,6 +55,7 @@ export const SettingsView: React.FC = () => {
     deleteClass,
     timetable,
     updateTimetableEntry,
+    clearTimetable,
     restoreData,
     students,
     dailyLogs,
@@ -72,6 +75,7 @@ export const SettingsView: React.FC = () => {
   const [teacherNameInput, setTeacherNameInput] = useState(settings.teacherName);
   const [newClassName, setNewClassName] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportTimetableModalOpen, setIsImportTimetableModalOpen] = useState(false);
   const [selectedPDFClassId, setSelectedPDFClassId] = useState<string>(classes[0]?.id || '');
   const [selectedPDFStudentId, setSelectedPDFStudentId] = useState<string>('');
   const [pdfReportType, setPdfReportType] = useState<
@@ -660,10 +664,42 @@ export const SettingsView: React.FC = () => {
 
       {/* Weekly Timetable Setup */}
       <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-xs space-y-4 overflow-x-auto">
-        <h2 className="text-sm font-black text-zinc-900 border-b border-zinc-100 pb-2 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-emerald-600" />
-          <span>جدول الحصص الأسبوعي</span>
-        </h2>
+        <div className="border-b border-zinc-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-emerald-600" />
+            <h2 className="text-sm font-black text-zinc-900">جدول الحصص الأسبوعي</h2>
+            <span className="text-[11px] text-zinc-400 font-bold">
+              ({timetable.length} حصة مسجلة)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setIsImportTimetableModalOpen(true)}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>إضافة الجدول من صورة (ذكاء اصطناعي 📸)</span>
+            </button>
+
+            {timetable.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('هل أنت متأكد من رغبتك في إفراغ جدول الحصص بالكامل؟')) {
+                    clearTimetable();
+                  }
+                }}
+                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                title="إفراغ الجدول"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>إفراغ</span>
+              </button>
+            )}
+          </div>
+        </div>
 
         <table className="w-full text-right text-xs font-bold border-collapse min-w-[500px]">
           <thead>
@@ -847,6 +883,13 @@ export const SettingsView: React.FC = () => {
       <ImportStudentsModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+        defaultClassId={selectedPDFClassId || classes[0]?.id}
+      />
+
+      {/* Import Timetable AI Modal */}
+      <ImportTimetableModal
+        isOpen={isImportTimetableModalOpen}
+        onClose={() => setIsImportTimetableModalOpen(false)}
       />
     </div>
   );

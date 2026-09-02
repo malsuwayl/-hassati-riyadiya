@@ -71,7 +71,8 @@ export const LoginScreen: React.FC = () => {
       setLoading(true);
       try {
         await resetPassword(email.trim());
-        setSuccessMsg('تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني بنجاح! تفقد صندوق الوارد.');
+        setSuccessMsg(`تم إرسال رابط استعادة كلمة المرور إلى (${email.trim()}) بنجاح! 
+يرجى التحقق من صندوق الوارد ومجلد الرسائل غير المرغوب فيها (Spam / Junk) والترويجات (Promotions).`);
         showToast('تم إرسال رابط الاستعادة إلى بريدك 📧', 'success');
       } catch (err: any) {
         setErrorMsg(formatFirebaseError(err));
