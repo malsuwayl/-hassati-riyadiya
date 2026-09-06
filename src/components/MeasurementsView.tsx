@@ -27,6 +27,7 @@ import {
   Info,
   ChevronDown,
   Search,
+  Pin,
 } from 'lucide-react';
 import { generateMeasurementsPDFReport } from '../utils/pdfExport';
 import {
@@ -511,14 +512,20 @@ export const MeasurementsView: React.FC = () => {
           </div>
 
           {/* Action Header for Adding Custom Fitness Test */}
-          <div className="flex justify-between items-center">
-            <div className="text-xs font-bold text-zinc-500">
-              عرض {filteredStudentSummaries.length} من أصل {classStudents.length} طالب
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-zinc-500">
+                عرض {filteredStudentSummaries.length} من أصل {classStudents.length} طالب
+              </span>
+              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                <Pin className="w-2.5 h-2.5 text-emerald-600" />
+                <span>الصف الأول وعمود الأسماء مثبتان</span>
+              </span>
               {bmiFilter !== 'all' && (
                 <button
                   type="button"
                   onClick={() => setBmiFilter('all')}
-                  className="text-emerald-700 hover:underline mr-2 font-black cursor-pointer"
+                  className="text-emerald-700 hover:underline mr-1 font-black cursor-pointer text-xs"
                 >
                   (إلغاء التصفية ✕)
                 </button>
@@ -603,42 +610,73 @@ export const MeasurementsView: React.FC = () => {
             </form>
           )}
 
-          {/* MAIN SPREADSHEET TABLE */}
+          {/* MAIN SPREADSHEET TABLE WITH STICKY HEADERS & STICKY NAME COLUMN */}
           <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-right border-collapse min-w-[900px]">
+            <div className="overflow-auto max-h-[calc(100vh-230px)] min-h-[420px] relative">
+              <table className="w-full text-right border-separate border-spacing-0 min-w-[920px]">
                 <thead>
-                  {/* Category Header Row */}
-                  <tr className="border-b border-zinc-200 text-xs font-black">
-                    <th colSpan={2} className="p-2 bg-zinc-100/90 text-zinc-700 border-l border-zinc-200 text-center">
-                      بيانات الطالب
+                  {/* Category Header Row - Sticky Top */}
+                  <tr style={{ height: 34 }}>
+                    <th
+                      colSpan={2}
+                      style={{ position: 'sticky', top: 0, right: 0, zIndex: 40, width: 220, minWidth: 220 }}
+                      className="p-2 bg-zinc-100 text-zinc-700 border-b border-l-2 border-l-zinc-300 border-zinc-200 text-center font-black text-xs shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]"
+                    >
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Pin className="w-3 h-3 text-emerald-600" />
+                        <span>بيانات الطالب (عمود ثابت)</span>
+                      </div>
                     </th>
-                    <th colSpan={3} className="p-2 bg-emerald-100/80 text-emerald-950 border-l border-zinc-200 text-center">
+                    <th
+                      colSpan={3}
+                      style={{ position: 'sticky', top: 0, zIndex: 30 }}
+                      className="p-2 bg-emerald-100/90 text-emerald-950 border-b border-l border-zinc-200 text-center font-black text-xs"
+                    >
                       <div className="flex items-center justify-center gap-1.5">
                         <Activity className="w-3.5 h-3.5 text-emerald-700" />
                         <span>القياسات الجسمية ومؤشر كتلة الجسم (BMI) - ثابتة للمقارنة</span>
                       </div>
                     </th>
                     {customFitnessItems.length > 0 && (
-                      <th colSpan={customFitnessItems.length} className="p-2 bg-sky-100/70 text-sky-950 border-l border-zinc-200 text-center">
+                      <th
+                        colSpan={customFitnessItems.length}
+                        style={{ position: 'sticky', top: 0, zIndex: 30 }}
+                        className="p-2 bg-sky-100/80 text-sky-950 border-b border-l border-zinc-200 text-center font-black text-xs"
+                      >
                         <div className="flex items-center justify-center gap-1.5">
                           <Flame className="w-3.5 h-3.5 text-sky-700" />
                           <span>اختبارات وعناصر اللياقة البدنية المرنة</span>
                         </div>
                       </th>
                     )}
-                    <th className="p-2 bg-emerald-100/80 text-emerald-950 text-center">
+                    <th
+                      style={{ position: 'sticky', top: 0, zIndex: 30 }}
+                      className="p-2 bg-emerald-100/90 text-emerald-950 border-b border-zinc-200 text-center font-black text-xs"
+                    >
                       التقييم العام
                     </th>
                   </tr>
 
-                  {/* Sub Header Row */}
-                  <tr className="bg-zinc-50 text-zinc-800 text-xs font-black border-b border-zinc-200">
-                    <th className="p-2.5 w-8 text-center border-l border-zinc-200">#</th>
-                    <th className="p-2.5 min-w-[140px] border-l border-zinc-200">اسم الطالب</th>
+                  {/* Sub Header Row - Sticky Top at 34px */}
+                  <tr style={{ height: 42 }}>
+                    <th
+                      style={{ position: 'sticky', top: 34, right: 0, zIndex: 40, width: 44, minWidth: 44, maxWidth: 44 }}
+                      className="p-2 text-center border-b border-l border-zinc-200 bg-zinc-100 font-black text-xs text-zinc-700"
+                    >
+                      #
+                    </th>
+                    <th
+                      style={{ position: 'sticky', top: 34, right: 44, zIndex: 40, width: 176, minWidth: 176, maxWidth: 210 }}
+                      className="p-2 text-right border-b border-l-2 border-l-zinc-300 border-zinc-200 bg-zinc-100 font-black text-xs text-zinc-900 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]"
+                    >
+                      اسم الطالب
+                    </th>
 
                     {/* FIXED 1: HEIGHT */}
-                    <th className="p-2 text-center border-l border-zinc-200 min-w-[100px] bg-emerald-50/50">
+                    <th
+                      style={{ position: 'sticky', top: 34, zIndex: 30 }}
+                      className="p-2 text-center border-b border-l border-zinc-200 min-w-[100px] bg-emerald-50/95 font-black text-xs"
+                    >
                       <div className="flex items-center justify-center gap-1 text-emerald-950">
                         <Ruler className="w-3.5 h-3.5 text-emerald-700" />
                         <span>الطول</span>
@@ -647,7 +685,10 @@ export const MeasurementsView: React.FC = () => {
                     </th>
 
                     {/* FIXED 2: WEIGHT */}
-                    <th className="p-2 text-center border-l border-zinc-200 min-w-[100px] bg-emerald-50/50">
+                    <th
+                      style={{ position: 'sticky', top: 34, zIndex: 30 }}
+                      className="p-2 text-center border-b border-l border-zinc-200 min-w-[100px] bg-emerald-50/95 font-black text-xs"
+                    >
                       <div className="flex items-center justify-center gap-1 text-emerald-950">
                         <Weight className="w-3.5 h-3.5 text-emerald-700" />
                         <span>الوزن</span>
@@ -656,7 +697,10 @@ export const MeasurementsView: React.FC = () => {
                     </th>
 
                     {/* FIXED 3: BMI */}
-                    <th className="p-2.5 text-center bg-teal-50 text-teal-950 font-black min-w-[140px] border-l border-zinc-200">
+                    <th
+                      style={{ position: 'sticky', top: 34, zIndex: 30 }}
+                      className="p-2 text-center bg-teal-50/95 text-teal-950 font-black min-w-[140px] border-b border-l border-zinc-200 text-xs"
+                    >
                       <div className="flex items-center justify-center gap-1 text-teal-950">
                         <Activity className="w-3.5 h-3.5 text-teal-700" />
                         <span>كتلة الجسم (BMI)</span>
@@ -666,7 +710,11 @@ export const MeasurementsView: React.FC = () => {
 
                     {/* CUSTOM FITNESS ITEMS */}
                     {customFitnessItems.map((item) => (
-                      <th key={item.id} className="p-2 text-center border-l border-zinc-200 min-w-[105px] group bg-sky-50/30">
+                      <th
+                        key={item.id}
+                        style={{ position: 'sticky', top: 34, zIndex: 30 }}
+                        className="p-2 text-center border-b border-l border-zinc-200 min-w-[105px] group bg-sky-50/95 text-xs font-black"
+                      >
                         <div className="flex items-center justify-between gap-1">
                           <button
                             type="button"
@@ -677,14 +725,17 @@ export const MeasurementsView: React.FC = () => {
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                           <div className="text-center flex-1">
-                            <span>{item.name}</span>
-                            <span className="text-[10px] font-bold text-zinc-400 block">({item.unit})</span>
+                            <span className="text-sky-950">{item.name}</span>
+                            <span className="text-[10px] font-bold text-sky-700/70 block">({item.unit})</span>
                           </div>
                         </div>
                       </th>
                     ))}
 
-                    <th className="p-2.5 text-center bg-emerald-50/60 text-emerald-950 font-black min-w-[100px]">
+                    <th
+                      style={{ position: 'sticky', top: 34, zIndex: 30 }}
+                      className="p-2 text-center bg-emerald-50/95 text-emerald-950 font-black min-w-[100px] border-b border-zinc-200 text-xs"
+                    >
                       مستوى اللياقة
                     </th>
                   </tr>
@@ -734,20 +785,29 @@ export const MeasurementsView: React.FC = () => {
                       };
 
                       return (
-                        <tr key={st.id} className="hover:bg-zinc-50/80 transition-colors">
-                          <td className="p-2 text-center text-zinc-400 font-black border-l border-zinc-100">{idx + 1}</td>
-                          <td className="p-2 border-l border-zinc-100">
+                        <tr key={st.id} className="group hover:bg-zinc-50/80 transition-colors">
+                          <td
+                            style={{ position: 'sticky', right: 0, zIndex: 20, width: 44, minWidth: 44, maxWidth: 44 }}
+                            className="p-2 text-center text-zinc-400 font-black border-b border-l border-zinc-200 bg-white group-hover:bg-zinc-50 transition-colors"
+                          >
+                            {idx + 1}
+                          </td>
+                          <td
+                            style={{ position: 'sticky', right: 44, zIndex: 20, width: 176, minWidth: 176, maxWidth: 210 }}
+                            className="p-2 border-b border-l-2 border-l-zinc-300 border-zinc-200 bg-white group-hover:bg-zinc-50 transition-colors shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]"
+                          >
                             <button
                               type="button"
                               onClick={() => setSelectedStudentId(st.id)}
-                              className="font-extrabold text-zinc-900 hover:text-emerald-700 text-right truncate block cursor-pointer"
+                              className="font-extrabold text-zinc-900 hover:text-emerald-700 text-right truncate block w-full cursor-pointer"
+                              title={st.name}
                             >
                               {st.name}
                             </button>
                           </td>
 
                           {/* FIXED HEIGHT INPUT */}
-                          <td className="p-1.5 text-center border-l border-zinc-100 bg-emerald-50/20">
+                          <td className="p-1.5 text-center border-b border-l border-zinc-100 bg-emerald-50/20">
                             <input
                               type="number"
                               step="any"
@@ -759,7 +819,7 @@ export const MeasurementsView: React.FC = () => {
                           </td>
 
                           {/* FIXED WEIGHT INPUT */}
-                          <td className="p-1.5 text-center border-l border-zinc-100 bg-emerald-50/20">
+                          <td className="p-1.5 text-center border-b border-l border-zinc-100 bg-emerald-50/20">
                             <input
                               type="number"
                               step="any"
@@ -771,7 +831,7 @@ export const MeasurementsView: React.FC = () => {
                           </td>
 
                           {/* FIXED BMI RESULT & STATUS CHIP */}
-                          <td className="p-1.5 text-center bg-teal-50/40 border-l border-zinc-100">
+                          <td className="p-1.5 text-center bg-teal-50/40 border-b border-l border-zinc-100">
                             {getBMIBadge()}
                           </td>
 
@@ -781,7 +841,7 @@ export const MeasurementsView: React.FC = () => {
                             const evalRes = evaluateMeasurementValue(val, item);
 
                             return (
-                              <td key={item.id} className="p-1 text-center border-l border-zinc-100">
+                              <td key={item.id} className="p-1 text-center border-b border-l border-zinc-100">
                                 <input
                                   type="text"
                                   value={val}
@@ -799,7 +859,7 @@ export const MeasurementsView: React.FC = () => {
                           })}
 
                           {/* OVERALL FITNESS RATING */}
-                          <td className="p-2 text-center bg-emerald-50/30 text-emerald-950 font-black">
+                          <td className="p-2 text-center bg-emerald-50/30 text-emerald-950 font-black border-b border-zinc-100">
                             <span
                               className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
                                 fitnessSummary.ratingLevel === 'ممتاز'

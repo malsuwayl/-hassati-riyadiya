@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { ImportStudentsModal } from './ImportStudentsModal';
 import { ImportTimetableModal } from './ImportTimetableModal';
+import { ScheduleManagerModal } from './ScheduleManagerModal';
 import {
   DEFAULT_PERIOD_TIMES,
   DEFAULT_NOTIFICATION_SETTINGS,
@@ -76,6 +77,7 @@ export const SettingsView: React.FC = () => {
   const [newClassName, setNewClassName] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImportTimetableModalOpen, setIsImportTimetableModalOpen] = useState(false);
+  const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false);
   const [selectedPDFClassId, setSelectedPDFClassId] = useState<string>(classes[0]?.id || '');
   const [selectedPDFStudentId, setSelectedPDFStudentId] = useState<string>('');
   const [pdfReportType, setPdfReportType] = useState<
@@ -676,11 +678,20 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
+              onClick={() => setIsScheduleManagerOpen(true)}
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <Calendar className="w-4 h-4" />
+              <span>مساعد بناء وتعديل الجدول التفاعلي ⚡</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsImportTimetableModalOpen(true)}
               className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
-              <span>إضافة الجدول من صورة (ذكاء اصطناعي 📸)</span>
+              <span>من صورة (ذكاء اصطناعي 📸)</span>
             </button>
 
             {timetable.length > 0 && (
@@ -884,6 +895,13 @@ export const SettingsView: React.FC = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         defaultClassId={selectedPDFClassId || classes[0]?.id}
+      />
+
+      {/* Schedule Manager Modal */}
+      <ScheduleManagerModal
+        isOpen={isScheduleManagerOpen}
+        onClose={() => setIsScheduleManagerOpen(false)}
+        onOpenImageImport={() => setIsImportTimetableModalOpen(true)}
       />
 
       {/* Import Timetable AI Modal */}
