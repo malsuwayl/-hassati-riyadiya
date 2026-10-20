@@ -8,6 +8,7 @@ import {
   generateIncentivesPDFReport,
   generateComprehensivePDFReport,
   generateStudentIndividualPDFReport,
+  generateStudentAttendanceAndUniformPDFReport,
   generateStatisticsPDFReport,
 } from '../utils/pdfExport';
 import {
@@ -81,7 +82,7 @@ export const SettingsView: React.FC = () => {
   const [selectedPDFClassId, setSelectedPDFClassId] = useState<string>(classes[0]?.id || '');
   const [selectedPDFStudentId, setSelectedPDFStudentId] = useState<string>('');
   const [pdfReportType, setPdfReportType] = useState<
-    'attendance' | 'grades' | 'measurements' | 'incentives' | 'comprehensive' | 'student_individual' | 'statistics'
+    'attendance' | 'grades' | 'measurements' | 'incentives' | 'comprehensive' | 'student_individual' | 'student_attendance_uniform' | 'statistics'
   >('attendance');
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
@@ -187,6 +188,31 @@ export const SettingsView: React.FC = () => {
   const handleExportPDFReport = async () => {
     const targetClass = classes.find((c) => c.id === selectedPDFClassId) || classes[0];
 
+    if (pdfReportType === 'student_attendance_uniform') {
+      const targetStudent = students.find((s) => s.id === selectedPDFStudentId) || students.filter((s) => s.classId === targetClass?.id)[0];
+      if (!targetStudent) {
+        showToast('الرجاء اختيار طالب لتوليد التقرير', 'error');
+        return;
+      }
+      setIsExportingPDF(true);
+      showToast('جاري إعداد كشف تواريخ الغياب والزي الرياضي...', 'info');
+      try {
+        const studentClass = classes.find((c) => c.id === targetStudent.classId);
+        await generateStudentAttendanceAndUniformPDFReport(
+          targetStudent,
+          studentClass,
+          dailyLogs,
+          settings
+        );
+        showToast('تم تحميل كشف الغياب والزي بالتواريخ بنجاح 🎽', 'success');
+      } catch (err) {
+        showToast('حدث خطأ أثناء تصدير كشف الغياب والزي للطالب', 'error');
+      } finally {
+        setIsExportingPDF(false);
+      }
+      return;
+    }
+
     if (pdfReportType === 'student_individual') {
       const targetStudent = students.find((s) => s.id === selectedPDFStudentId) || students.filter((s) => s.classId === targetClass?.id)[0];
       if (!targetStudent) {
@@ -194,7 +220,7 @@ export const SettingsView: React.FC = () => {
         return;
       }
       setIsExportingPDF(true);
-      showToast('جاري إعداد التقرير الفردي للطالب...', 'info');
+      showToast('جاري إعداد التقرير الفردي الشامل للطالب...', 'info');
       try {
         const studentClass = classes.find((c) => c.id === targetStudent.classId);
         await generateStudentIndividualPDFReport(
@@ -208,7 +234,7 @@ export const SettingsView: React.FC = () => {
           grades,
           settings
         );
-        showToast('تم تحميل التقرير الفردي للطالب بنجاح 📄', 'success');
+        showToast('تم تحميل التقرير الفردي الشامل للطالب بنجاح 📄', 'success');
       } catch (err) {
         showToast('حدث خطأ أثناء تصدير ملف PDF للطالب', 'error');
       } finally {
@@ -800,7 +826,7 @@ export const SettingsView: React.FC = () => {
                 onChange={(e) => {
                   const val = e.target.value as any;
                   setPdfReportType(val);
-                  if (val === 'student_individual' && !selectedPDFStudentId) {
+                  if ((val === 'student_individual' || val === 'student_attendance_uniform') && !selectedPDFStudentId) {
                     const firstSt = students.find((s) => s.classId === selectedPDFClassId) || students[0];
                     if (firstSt) setSelectedPDFStudentId(firstSt.id);
                   }
@@ -813,12 +839,13 @@ export const SettingsView: React.FC = () => {
                 <option value="incentives">⭐️ تقرير بنك التحفيز والسلوك والمخالفات (للفصل)</option>
                 <option value="statistics">📈 تقرير الإحصائيات والتحليلات العامة (للفصل)</option>
                 <option value="comprehensive">📊 التقرير الشامل والموحد للمادة (للفصل)</option>
+                <option value="student_attendance_uniform">🎽 كشف تواريخ الغياب ومخالفات الزي الرياضي (لطالب محدد بالتاريخ)</option>
                 <option value="student_individual">👤 تقرير الأداء الفردي الشامل (لطالب محدد)</option>
               </select>
             </div>
           </div>
 
-          {pdfReportType === 'student_individual' && (
+          {(pdfReportType === 'student_individual' || pdfReportType === 'student_attendance_uniform') && (
             <div className="pt-1">
               <label className="text-[10px] font-black text-emerald-900 block mb-1">اختر الطالب المطلوب</label>
               <select

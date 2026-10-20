@@ -638,6 +638,27 @@ export const generateComprehensivePDFReport = async (
 };
 
 /**
+ * Helper to compute Arabic Day of the Week name from date string YYYY-MM-DD
+ */
+export const getArabicDayName = (dateStr: string): string => {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(year, month, day);
+      const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      return dayNames[d.getDay()] || '';
+    }
+  } catch {
+    // fallback
+  }
+  return '';
+};
+
+/**
  * 5. INDIVIDUAL STUDENT COMPREHENSIVE PDF REPORT (تقرير الطالب الفردي الشامل)
  */
 export const generateStudentIndividualPDFReport = async (
@@ -654,13 +675,18 @@ export const generateStudentIndividualPDFReport = async (
   const container = document.createElement('div');
   container.style.padding = '32px';
 
-  // 1. Attendance Metrics
-  const stLogs = dailyLogs.filter((l) => l.studentId === student.id);
+  // 1. Attendance Metrics (Sorted newest first)
+  const stLogs = dailyLogs
+    .filter((l) => l.studentId === student.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
   const totalDays = stLogs.length || 1;
   const presentCount = stLogs.filter((l) => l.attendance === 'present').length;
   const absentCount = stLogs.filter((l) => l.attendance === 'absent').length;
   const lateCount = stLogs.filter((l) => l.attendance === 'late').length;
-  const uniformViolations = stLogs.filter((l) => l.attendance === 'present' && l.uniform === false).length;
+  const uniformViolationsLogs = stLogs.filter((l) => l.uniform === false);
+  const uniformViolations = uniformViolationsLogs.length;
+  const absentLogsList = stLogs.filter((l) => l.attendance === 'absent');
   const attendanceRate = Math.round((presentCount / totalDays) * 100);
 
   // 2. Fitness Metrics & BMI
@@ -729,6 +755,76 @@ export const generateStudentIndividualPDFReport = async (
     `;
   }).join('');
 
+  // Absent Dates Rows
+  const absentDatesRows = absentLogsList.length > 0
+    ? absentLogsList.map((log, idx) => {
+        const day = getArabicDayName(log.date);
+        return `
+          <tr style="border-bottom: 1px solid #fecaca; font-size: 10px; background: #fff5f5;">
+            <td style="padding: 5px 6px; text-align: center; font-weight: 900; color: #b91c1c;">${idx + 1}</td>
+            <td style="padding: 5px 6px; text-align: right; font-weight: 800; color: #18181b;">
+              <strong style="color: #dc2626;">${day}</strong> ${log.date}
+            </td>
+            <td style="padding: 5px 6px; text-align: right; color: #52525b; font-size: 9px;">${log.notes || 'بدون عذر مسجل'}</td>
+          </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="3" style="text-align: center; padding: 8px; color: #166534; font-size: 10px; font-weight: 800; background: #f0fdf4;">✨ سجل نظيف: لا توجد أي أيام غياب مسجلة للطالب</td></tr>`;
+
+  // Uniform Violations Dates Rows
+  const uniformDatesRows = uniformViolationsLogs.length > 0
+    ? uniformViolationsLogs.map((log, idx) => {
+        const day = getArabicDayName(log.date);
+        return `
+          <tr style="border-bottom: 1px solid #e9d5ff; font-size: 10px; background: #faf5ff;">
+            <td style="padding: 5px 6px; text-align: center; font-weight: 900; color: #6b21a8;">${idx + 1}</td>
+            <td style="padding: 5px 6px; text-align: right; font-weight: 800; color: #18181b;">
+              <strong style="color: #7e22ce;">${day}</strong> ${log.date}
+            </td>
+            <td style="padding: 5px 6px; text-align: right; color: #52525b; font-size: 9px;">${log.notes || 'حضر الحصة بدون الزي الرياضي الكامل'}</td>
+          </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="3" style="text-align: center; padding: 8px; color: #166534; font-size: 10px; font-weight: 800; background: #f0fdf4;">✨ التزام تام: لم تسجل أي مخالفة زي رياضي للطالب</td></tr>`;
+
+  // Recent 10 Full Sessions Breakdown Rows
+  const sessionsTableRows = stLogs.slice(0, 15).map((log, idx) => {
+    const day = getArabicDayName(log.date);
+    const isAbsent = log.attendance === 'absent';
+    const isLate = log.attendance === 'late';
+    const isExcused = log.attendance === 'excused';
+
+    let attBadge = '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 9px;">حاضر ✓</span>';
+    if (isAbsent) {
+      attBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 9px;">غائب ✕</span>';
+    } else if (isLate) {
+      attBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 9px;">متأخر ⏰</span>';
+    } else if (isExcused) {
+      attBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 9px;">معذور 📄</span>';
+    }
+
+    let uniBadge = '<span style="color: #71717a;">-</span>';
+    if (!isAbsent) {
+      if (log.uniform === false) {
+        uniBadge = '<span style="background: #f3e8ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 9px; border: 1px solid #d8b4fe;">❌ بدون زي</span>';
+      } else if (log.uniform === true) {
+        uniBadge = '<span style="background: #f0fdf4; color: #15803d; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 9px;">✅ بالزي</span>';
+      }
+    }
+
+    return `
+      <tr style="border-bottom: 1px solid #e4e4e7; font-size: 10px; background: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+        <td style="padding: 5px 6px; text-align: center; color: #71717a;">${idx + 1}</td>
+        <td style="padding: 5px 6px; text-align: right; font-weight: 800; color: #18181b;">
+          ${day ? `<strong style="color: #065f46;">${day}</strong> - ` : ''}${log.date}
+        </td>
+        <td style="padding: 5px 6px; text-align: center;">${attBadge}</td>
+        <td style="padding: 5px 6px; text-align: center;">${uniBadge}</td>
+        <td style="padding: 5px 6px; text-align: right; color: #52525b; font-size: 9px;">${log.notes || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+
   // Recent Incentives History
   const recentIncentivesHTML = stIncentives.slice(-5).map((r) => `
     <div style="padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; font-size: 10px; font-weight: 800; display: flex; justify-content: space-between; ${
@@ -743,18 +839,18 @@ export const generateStudentIndividualPDFReport = async (
 
   const html = `
     ${buildReportHeaderHTML(
-      'تقرير الأداء الفردي للطالب',
-      `السجل الشامل للطالب: ${student.name}`,
+      'تقرير الأداء الفردي الشامل للطالب',
+      `السجل المتكامل والمواظبة والزي والدرجات: ${student.name}`,
       className,
       settings
     )}
 
     <!-- Student Bio Card -->
-    <div style="background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
       <div>
         <h3 style="margin: 0; font-size: 18px; font-weight: 900; color: #0f172a;">${student.name}</h3>
         <p style="margin: 4px 0 0 0; font-size: 11px; font-weight: 800; color: #64748b;">
-          الفصل: <strong style="color: #047857;">${className}</strong> | الرقم/المعرف: ${student.id.slice(0, 8)}
+          الفصل: <strong style="color: #047857;">${className}</strong> | المعرف: ${student.id.slice(0, 8)} ${student.nationalId ? `| الهوية: ${student.nationalId}` : ''}
         </p>
       </div>
 
@@ -766,13 +862,21 @@ export const generateStudentIndividualPDFReport = async (
     </div>
 
     <!-- KPI Metrics -->
-    <div style="display: flex; gap: 10px; margin-bottom: 20px; text-align: center;">
+    <div style="display: flex; gap: 10px; margin-bottom: 16px; text-align: center;">
       <div style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px; border-radius: 10px;">
         <span style="font-size: 10px; font-weight: 800; color: #166534; display: block;">نسبة الحضور</span>
         <strong style="font-size: 16px; color: #065f46; font-weight: 900;">${attendanceRate}% (${presentCount} يوم)</strong>
       </div>
+      <div style="flex: 1; background: #fef2f2; border: 1px solid #fecaca; padding: 10px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #991b1b; display: block;">أيام الغياب</span>
+        <strong style="font-size: 16px; color: #dc2626; font-weight: 900;">${absentCount} أيام</strong>
+      </div>
+      <div style="flex: 1; background: #faf5ff; border: 1px solid #e9d5ff; padding: 10px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #6b21a8; display: block;">بدون زي رياضي</span>
+        <strong style="font-size: 16px; color: #7e22ce; font-weight: 900;">${uniformViolations} مرات</strong>
+      </div>
       <div style="flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; padding: 10px; border-radius: 10px;">
-        <span style="font-size: 10px; font-weight: 800; color: #1e40af; display: block;">مجموع اللياقة البدنية</span>
+        <span style="font-size: 10px; font-weight: 800; color: #1e40af; display: block;">مجموع اللياقة</span>
         <strong style="font-size: 16px; color: #1d4ed8; font-weight: 900;">${fitnessSummary.totalScore} نقطة</strong>
       </div>
       <div style="flex: 1; background: #fefce8; border: 1px solid #fef08a; padding: 10px; border-radius: 10px;">
@@ -780,24 +884,95 @@ export const generateStudentIndividualPDFReport = async (
         <strong style="font-size: 16px; color: #ca8a04; font-weight: 900;">${netPoints > 0 ? `+${netPoints}` : netPoints} نقطة</strong>
       </div>
       <div style="flex: 1; background: #faf5ff; border: 1px solid #e9d5ff; padding: 10px; border-radius: 10px;">
-        <span style="font-size: 10px; font-weight: 800; color: #6b21a8; display: block;">الدرجات العلمية</span>
+        <span style="font-size: 10px; font-weight: 800; color: #6b21a8; display: block;">الدرجات</span>
         <strong style="font-size: 16px; color: #7e22ce; font-weight: 900;">${gradesEarned} / ${gradesMax}</strong>
       </div>
     </div>
 
+    <!-- DEDICATED SECTION: DATES OF ABSENCE & UNIFORM VIOLATIONS -->
+    <div style="background: #ffffff; border: 2px solid #065f46; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 900; color: #065f46; display: flex; align-items: center; justify-content: space-between;">
+        <span>📅 كشف تواريخ الغياب وعدم إحضار الزي الرياضي بالتفصيل</span>
+        <span style="font-size: 10px; font-weight: 800; color: #047857; background: #f0fdf4; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 6px;">
+          إجمالي الحصص المرصودة: ${stLogs.length} حصة
+        </span>
+      </h3>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <!-- Box 1: Absent Dates List -->
+        <div style="flex: 1; background: #fffdfd; border: 1px solid #fecaca; border-radius: 10px; padding: 10px;">
+          <h4 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 900; color: #b91c1c; border-bottom: 2px solid #fecaca; padding-bottom: 4px;">
+            🔴 تواريخ أيام الغياب المرصودة (${absentCount} يوم)
+          </h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #fee2e2; font-size: 9px; font-weight: 900; color: #7f1d1d;">
+                <th style="padding: 4px; text-align: center; width: 24px;">#</th>
+                <th style="padding: 4px; text-align: right;">اليوم والتاريخ</th>
+                <th style="padding: 4px; text-align: right;">العذر والملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${absentDatesRows}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Box 2: Missing Uniform Dates List -->
+        <div style="flex: 1; background: #fdfcff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 10px;">
+          <h4 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 900; color: #7e22ce; border-bottom: 2px solid #e9d5ff; padding-bottom: 4px;">
+            🎽 تواريخ عدم إحضار الزي الرياضي (${uniformViolations} مرات)
+          </h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f3e8ff; font-size: 9px; font-weight: 900; color: #581c87;">
+                <th style="padding: 4px; text-align: center; width: 24px;">#</th>
+                <th style="padding: 4px; text-align: right;">اليوم والتاريخ</th>
+                <th style="padding: 4px; text-align: right;">ملاحظة وتنبيه المعلم</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${uniformDatesRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Chronological Sessions Table -->
+      <div>
+        <h4 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 900; color: #334155;">
+          📋 السجل الزمني التفصيلي للحضور والزي الرياضي (آخر الحصص):
+        </h4>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #f1f5f9; font-size: 9px; font-weight: 900; color: #334155;">
+              <th style="padding: 5px; text-align: center; width: 25px;">#</th>
+              <th style="padding: 5px; text-align: right;">اليوم والتاريخ</th>
+              <th style="padding: 5px; text-align: center; width: 75px;">حالة الحضور</th>
+              <th style="padding: 5px; text-align: center; width: 90px;">الزي الرياضي</th>
+              <th style="padding: 5px; text-align: right;">ملاحظات الحصة</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sessionsTableRows || '<tr><td colspan="5" style="text-align: center; padding: 8px;">لا توجد سجلات بعد</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- 2 Column Section: Measurements & Grades -->
-    <div style="display: flex; gap: 16px; margin-bottom: 20px;">
+    <div style="display: flex; gap: 14px; margin-bottom: 16px;">
       <!-- Measurements -->
-      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 12px;">
-        <h4 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 900; color: #047857; border-bottom: 2px solid #a7f3d0; padding-bottom: 4px;">
+      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 10px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 11px; font-weight: 900; color: #047857; border-bottom: 2px solid #a7f3d0; padding-bottom: 4px;">
           🏃‍♂️ نتائج الاختبارات والقياسات البدنية (BMI: ${bmiText})
         </h4>
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
-            <tr style="background: #f4f4f5; font-size: 10px; font-weight: 900; color: #3f3f46;">
-              <th style="padding: 6px; text-align: right;">عنصر القياس</th>
-              <th style="padding: 6px; text-align: center;">النتيجة</th>
-              <th style="padding: 6px; text-align: center;">التصنيف</th>
+            <tr style="background: #f4f4f5; font-size: 9px; font-weight: 900; color: #3f3f46;">
+              <th style="padding: 5px; text-align: right;">عنصر القياس</th>
+              <th style="padding: 5px; text-align: center;">النتيجة</th>
+              <th style="padding: 5px; text-align: center;">التصنيف</th>
             </tr>
           </thead>
           <tbody>
@@ -807,16 +982,16 @@ export const generateStudentIndividualPDFReport = async (
       </div>
 
       <!-- Grades -->
-      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 12px;">
-        <h4 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 900; color: #047857; border-bottom: 2px solid #a7f3d0; padding-bottom: 4px;">
-          📝 سجل التقويم والدرجات المهارية
+      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 10px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 11px; font-weight: 900; color: #047857; border-bottom: 2px solid #a7f3d0; padding-bottom: 4px;">
+          📝 سجل التقويم والدرجات المهارية (${gradesEarned} / ${gradesMax})
         </h4>
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
-            <tr style="background: #f4f4f5; font-size: 10px; font-weight: 900; color: #3f3f46;">
-              <th style="padding: 6px; text-align: right;">البند / الاختبار</th>
-              <th style="padding: 6px; text-align: center;">الدرجة العظمى</th>
-              <th style="padding: 6px; text-align: center;">المكتسبة</th>
+            <tr style="background: #f4f4f5; font-size: 9px; font-weight: 900; color: #3f3f46;">
+              <th style="padding: 5px; text-align: right;">البند / الاختبار</th>
+              <th style="padding: 5px; text-align: center;">العظمى</th>
+              <th style="padding: 5px; text-align: center;">المكتسبة</th>
             </tr>
           </thead>
           <tbody>
@@ -827,25 +1002,25 @@ export const generateStudentIndividualPDFReport = async (
     </div>
 
     <!-- Incentives & Notes Row -->
-    <div style="display: flex; gap: 16px; margin-bottom: 20px;">
+    <div style="display: flex; gap: 14px; margin-bottom: 16px;">
       <!-- Incentives History -->
-      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 12px;">
-        <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 900; color: #047857;">
+      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 10px;">
+        <h4 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 900; color: #047857;">
           ⭐ بنك التحفيز والسلوك (إيجابي: ${positiveCount} | مخالفات: ${negativeCount})
         </h4>
-        ${recentIncentivesHTML || '<p style="font-size: 11px; color: #a1a1aa; text-align: center; margin: 10px 0;">لا توجد سجلات تحفيز مسجلة</p>'}
+        ${recentIncentivesHTML || '<p style="font-size: 10px; color: #a1a1aa; text-align: center; margin: 8px 0;">لا توجد سجلات تحفيز مسجلة</p>'}
       </div>
 
       <!-- Notes & Medical -->
-      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 12px; font-size: 11px; font-weight: 700;">
-        <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 900; color: #047857;">
+      <div style="flex: 1; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 10px; font-size: 10px; font-weight: 700;">
+        <h4 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 900; color: #047857;">
           📌 الملاحظات الصحية والتوصيات
         </h4>
-        <div style="background: #fffbeb; border: 1px solid #fef3c7; p: 8px; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+        <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 6px; border-radius: 6px; margin-bottom: 6px;">
           <strong style="color: #92400e; display: block; margin-bottom: 2px;">الحالة الصحية:</strong>
           <span style="color: #78350f;">${student.medicalNotes || 'سليم ولله الحمد (لا توجد ملاحظات صحية)'}</span>
         </div>
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px; border-radius: 6px;">
           <strong style="color: #334155; display: block; margin-bottom: 2px;">توصيات المعلم:</strong>
           <span style="color: #475569;">${student.teacherNotes || 'طالب متميز ومتفاعل في حصص التربية البدنية.'}</span>
         </div>
@@ -856,8 +1031,261 @@ export const generateStudentIndividualPDFReport = async (
   `;
 
   container.innerHTML = html;
-  await renderContainerToPDF(container, `تقرير_الطالب_${student.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  await renderContainerToPDF(container, `تقرير_الطالب_الشامل_${student.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
 };
+
+/**
+ * 5.1 SPECIALIZED DATED ATTENDANCE & UNIFORM PDF REPORT (كشف تواريخ الغياب ومخالفات الزي الرياضي بالتفصيل)
+ */
+export const generateStudentAttendanceAndUniformPDFReport = async (
+  student: Student,
+  classItem: ClassItem | undefined,
+  dailyLogs: DailyLogRecord[],
+  settings: TeacherSettings
+) => {
+  const container = document.createElement('div');
+  container.style.padding = '32px';
+
+  // Sort logs chronologically (newest first)
+  const stLogs = dailyLogs
+    .filter((l) => l.studentId === student.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const totalSessions = stLogs.length;
+  const presentCount = stLogs.filter((l) => l.attendance === 'present').length;
+  const absentLogsList = stLogs.filter((l) => l.attendance === 'absent');
+  const absentCount = absentLogsList.length;
+  const lateLogsList = stLogs.filter((l) => l.attendance === 'late');
+  const lateCount = lateLogsList.length;
+  const excusedLogsList = stLogs.filter((l) => l.attendance === 'excused');
+  const excusedCount = excusedLogsList.length;
+
+  const uniformViolationsLogs = stLogs.filter((l) => l.uniform === false);
+  const uniformViolationsCount = uniformViolationsLogs.length;
+
+  const uniformAdherenceCount = stLogs.filter((l) => l.attendance === 'present' && l.uniform === true).length;
+  const attendanceRate = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 100;
+
+  // Format Absent Dates Table
+  const absentRowsHTML = absentLogsList.length > 0
+    ? absentLogsList.map((log, idx) => {
+        const day = getArabicDayName(log.date);
+        return `
+          <tr style="border-bottom: 1px solid #fecaca; background: #fff5f5; font-size: 11px;">
+            <td style="padding: 8px; text-align: center; font-weight: 900; color: #b91c1c;">${idx + 1}</td>
+            <td style="padding: 8px; text-align: right; font-weight: 900; color: #18181b;">
+              <span style="color: #dc2626;">${day}</span> - ${log.date}
+            </td>
+            <td style="padding: 8px; text-align: center; color: #dc2626; font-weight: 800;">غائب ✕</td>
+            <td style="padding: 8px; text-align: right; color: #4b5563;">${log.notes || 'لم يُقدم عذر رسمي'}</td>
+          </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="4" style="text-align: center; padding: 12px; color: #15803d; font-weight: 800; background: #f0fdf4;">✨ سجل نظيف تماماً: لا توجد أي أيام غياب مسجلة للطالب</td></tr>`;
+
+  // Format Uniform Violations Dates Table
+  const uniformRowsHTML = uniformViolationsLogs.length > 0
+    ? uniformViolationsLogs.map((log, idx) => {
+        const day = getArabicDayName(log.date);
+        return `
+          <tr style="border-bottom: 1px solid #e9d5ff; background: #faf5ff; font-size: 11px;">
+            <td style="padding: 8px; text-align: center; font-weight: 900; color: #6b21a8;">${idx + 1}</td>
+            <td style="padding: 8px; text-align: right; font-weight: 900; color: #18181b;">
+              <span style="color: #7e22ce;">${day}</span> - ${log.date}
+            </td>
+            <td style="padding: 8px; text-align: center; color: #7e22ce; font-weight: 900;">بدون زي رياضي ❌</td>
+            <td style="padding: 8px; text-align: right; color: #4b5563;">${log.notes || 'حضر الحصة بدون الزي الرياضي المطلوب'}</td>
+          </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="4" style="text-align: center; padding: 12px; color: #15803d; font-weight: 800; background: #f0fdf4;">✨ التزام كامل: الطالب ملتزم دائماً بإحضار الزي الرياضي في كل الحصص</td></tr>`;
+
+  // Format Complete Timeline Sessions Table
+  const allSessionsRowsHTML = stLogs.length > 0
+    ? stLogs.map((log, idx) => {
+        const day = getArabicDayName(log.date);
+        const isAbsent = log.attendance === 'absent';
+        const isLate = log.attendance === 'late';
+        const isExcused = log.attendance === 'excused';
+
+        let attText = '<span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 10px;">حاضر ✓</span>';
+        if (isAbsent) {
+          attText = '<span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 10px;">غائب ✕</span>';
+        } else if (isLate) {
+          attText = '<span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 10px;">متأخر ⏰</span>';
+        } else if (isExcused) {
+          attText = '<span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 10px;">معذور 📄</span>';
+        }
+
+        let uniText = '<span style="color: #9ca3af;">-</span>';
+        if (!isAbsent) {
+          if (log.uniform === false) {
+            uniText = '<span style="background: #f3e8ff; color: #7e22ce; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 10px; border: 1px solid #d8b4fe;">❌ بدون زي</span>';
+          } else if (log.uniform === true) {
+            uniText = '<span style="background: #f0fdf4; color: #166534; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 10px;">✅ مكتمل الزي</span>';
+          }
+        }
+
+        return `
+          <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10px; background: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">${idx + 1}</td>
+            <td style="padding: 6px 8px; text-align: right; font-weight: 800; color: #111827;">
+              <strong style="color: #047857;">${day}</strong> - ${log.date}
+            </td>
+            <td style="padding: 6px 8px; text-align: center;">${attText}</td>
+            <td style="padding: 6px 8px; text-align: center;">${uniText}</td>
+            <td style="padding: 6px 8px; text-align: right; color: #4b5563;">${log.notes || '-'}</td>
+          </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="5" style="text-align: center; padding: 12px; color: #9ca3af;">لا توجد أي حصص مسجلة حتى الآن</td></tr>`;
+
+  const className = classItem ? classItem.name : 'الفصل الدراسي';
+
+  const html = `
+    ${buildReportHeaderHTML(
+      'كشف سجل المواظبة والزي الرياضي التفصيلي',
+      `بيان رسمي بتواريخ الغياب ومخالفات الزي للطالب: ${student.name}`,
+      className,
+      settings
+    )}
+
+    <!-- Student Bio Card -->
+    <div style="background: #f0fdf4; border: 2px solid #a7f3d0; border-radius: 12px; padding: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h2 style="margin: 0; font-size: 18px; font-weight: 900; color: #065f46;">${student.name}</h2>
+        <p style="margin: 4px 0 0 0; font-size: 11px; font-weight: 800; color: #047857;">
+          الفصل: <strong>${className}</strong> | الرقم الأكاديمي: ${student.id.slice(0, 8)} ${student.nationalId ? `| السجل المدني: ${student.nationalId}` : ''}
+        </p>
+      </div>
+
+      <div style="text-align: left; font-size: 11px; font-weight: 800; color: #065f46;">
+        <span style="background: #047857; color: #ffffff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 900;">
+          نسبة المواظبة: ${attendanceRate}%
+        </span>
+      </div>
+    </div>
+
+    <!-- KPI Summary Row -->
+    <div style="display: flex; gap: 10px; margin-bottom: 16px; text-align: center;">
+      <div style="flex: 1; background: #ffffff; border: 1px solid #d1d5db; padding: 10px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #4b5563; display: block;">إجمالي الحصص</span>
+        <strong style="font-size: 18px; color: #111827; font-weight: 900;">${totalSessions} حصة</strong>
+      </div>
+      <div style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #15803d; display: block;">أيام الحضور</span>
+        <strong style="font-size: 18px; color: #166534; font-weight: 900;">${presentCount} يوم</strong>
+      </div>
+      <div style="flex: 1; background: #fef2f2; border: 1px solid #fecaca; padding: 10px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #991b1b; display: block;">أيام الغياب</span>
+        <strong style="font-size: 18px; color: #dc2626; font-weight: 900;">${absentCount} يوم</strong>
+      </div>
+      <div style="flex: 1; background: #faf5ff; border: 1px solid #e9d5ff; padding: 10px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #6b21a8; display: block;">عدم إحضار الزي</span>
+        <strong style="font-size: 18px; color: #7e22ce; font-weight: 900;">${uniformViolationsCount} مرات</strong>
+      </div>
+      <div style="flex: 1; background: #fefce8; border: 1px solid #fef08a; padding: 10px; border-radius: 10px;">
+        <span style="font-size: 10px; font-weight: 800; color: #854d0e; display: block;">أيام التأخر</span>
+        <strong style="font-size: 18px; color: #ca8a04; font-weight: 900;">${lateCount} يوم</strong>
+      </div>
+    </div>
+
+    <!-- SECTION 1: DETAILED DATES OF ABSENCE -->
+    <div style="background: #ffffff; border: 1px solid #fca5a5; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+      <h3 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 900; color: #b91c1c; display: flex; align-items: center; justify-content: space-between;">
+        <span>🔴 جدول تواريخ أيام الغياب بالتفصيل (${absentCount} يوم غياب):</span>
+        <span style="font-size: 10px; font-weight: 800; color: #991b1b;">يرجى مراجعة إدارة المدرسة في حال وجود أعذار طبية أو رسمية</span>
+      </h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 900;">
+            <th style="padding: 6px; border: 1px solid #fecaca; text-align: center; width: 30px;">#</th>
+            <th style="padding: 6px; border: 1px solid #fecaca; text-align: right; width: 180px;">اليوم والتاريخ</th>
+            <th style="padding: 6px; border: 1px solid #fecaca; text-align: center; width: 90px;">الحالة</th>
+            <th style="padding: 6px; border: 1px solid #fecaca; text-align: right;">الملاحظات والأعذار</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${absentRowsHTML}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 2: DETAILED DATES OF UNIFORM VIOLATIONS -->
+    <div style="background: #ffffff; border: 1px solid #d8b4fe; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+      <h3 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 900; color: #6b21a8; display: flex; align-items: center; justify-content: space-between;">
+        <span>🎽 جدول تواريخ عدم إحضار الزي الرياضي (${uniformViolationsCount} مخالفات زي):</span>
+        <span style="font-size: 10px; font-weight: 800; color: #7e22ce;">يلزم الطالب بارتداء الزي الرياضي الكامل المعتمد لحصص المادة</span>
+      </h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f3e8ff; color: #6b21a8; font-size: 10px; font-weight: 900;">
+            <th style="padding: 6px; border: 1px solid #e9d5ff; text-align: center; width: 30px;">#</th>
+            <th style="padding: 6px; border: 1px solid #e9d5ff; text-align: right; width: 180px;">اليوم والتاريخ</th>
+            <th style="padding: 6px; border: 1px solid #e9d5ff; text-align: center; width: 110px;">حالة الزي</th>
+            <th style="padding: 6px; border: 1px solid #e9d5ff; text-align: right;">ملاحظة وتنبيه المعلم</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${uniformRowsHTML}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 3: FULL CHRONOLOGICAL TIMELINE OF ALL SESSIONS -->
+    <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 16px;">
+      <h3 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 900; color: #111827;">
+        📋 السجل الزمني التوثيقي الكامل لجميع الحصص الدراسية المسجلة:
+      </h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #065f46; color: #ffffff; font-size: 10px; font-weight: 900;">
+            <th style="padding: 6px; border: 1px solid #047857; text-align: center; width: 30px;">#</th>
+            <th style="padding: 6px; border: 1px solid #047857; text-align: right; width: 170px;">اليوم والتاريخ</th>
+            <th style="padding: 6px; border: 1px solid #047857; text-align: center; width: 85px;">حالة الحضور</th>
+            <th style="padding: 6px; border: 1px solid #047857; text-align: center; width: 95px;">الزي الرياضي</th>
+            <th style="padding: 6px; border: 1px solid #047857; text-align: right;">ملاحظات المعلم</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allSessionsRowsHTML}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- OFFICIAL SIGNATURES & STAMP FOOTER -->
+    <div style="margin-top: 24px; padding-top: 14px; border-top: 2px dashed #cbd5e1; display: flex; justify-content: space-between; align-items: flex-end; font-size: 11px; font-weight: 800; color: #374151;">
+      <div style="text-align: center; width: 23%;">
+        <p style="margin: 0 0 35px 0;">معلم مادة التربية البدنية</p>
+        <p style="margin: 0; color: #065f46; font-size: 11px; font-weight: 900;">أ. ${settings.teacherName || '__________________'}</p>
+      </div>
+
+      <div style="text-align: center; width: 23%;">
+        <p style="margin: 0 0 35px 0;">الموجه الطلابي (المرشد)</p>
+        <p style="margin: 0;">التوقيع: __________________</p>
+      </div>
+
+      <div style="text-align: center; width: 20%;">
+        <p style="margin: 0 0 35px 0;">ختم المدرسة الرسمي</p>
+        <div style="width: 60px; height: 60px; border: 2px dashed #cbd5e1; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 9px;">
+          [الختـم]
+        </div>
+      </div>
+
+      <div style="text-align: center; width: 23%;">
+        <p style="margin: 0 0 35px 0;">مدير المدرسة</p>
+        <p style="margin: 0;">التوقيع: __________________</p>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  await renderContainerToPDF(
+    container,
+    `كشف_مواظبة_وزي_${student.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
+  );
+};
+
 
 /**
  * 6. STATISTICS & ANALYTICS PDF REPORT (تقرير الإحصائيات والتحليلات العامة)

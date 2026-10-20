@@ -39,7 +39,6 @@ export const AttendanceView: React.FC = () => {
   const [editingNoteStudentId, setEditingNoteStudentId] = useState<string | null>(null);
   const [tempNoteText, setTempNoteText] = useState('');
   const [isCardModeOpen, setIsCardModeOpen] = useState(false);
-  const [showHelpGuide, setShowHelpGuide] = useState(false);
 
   const activeClass = classes.find((c) => c.id === selectedClassId) || classes[0];
 
@@ -158,7 +157,7 @@ export const AttendanceView: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-2xl mx-auto px-3 py-4 font-sans space-y-4">
+    <div className="space-y-4 font-sans pb-6">
       {/* Quick Card Mode Overlay if active */}
       {isCardModeOpen && (
         <QuickCardMode onClose={() => setIsCardModeOpen(false)} />
@@ -167,86 +166,12 @@ export const AttendanceView: React.FC = () => {
       {/* Main Container if Card Mode is closed */}
       {!isCardModeOpen && (
         <>
-          {/* Friendly Guidance Bar for Low-Tech Users */}
-          <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-2xl p-4 shadow-md text-right flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="bg-emerald-500 text-white text-[11px] font-black px-2 py-0.5 rounded-md animate-pulse">
-                  طريقة سهلة وسريعة ⚡
-                </span>
-                <h2 className="text-sm font-black">تحضير {activeClass?.name || 'الفصل'}</h2>
-              </div>
-              <p className="text-xs text-indigo-200 mt-1 font-medium leading-relaxed">
-                اضغط <strong className="text-emerald-300 font-black">"حاضر للكل"</strong> ثم غيّر الغائبين بنقرة واحدة، أو استخدم <strong className="text-yellow-300 font-black">"وضع البطاقات السريع"</strong> لتمرير الطلاب بسهولة.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(30);
-                  setIsCardModeOpen(true);
-                }}
-                className="flex-1 sm:flex-none px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xs font-black rounded-xl shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
-              >
-                <Sparkles className="w-4 h-4 text-emerald-100" />
-                <span>التحضير كبطاقات سريعة 📱</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowHelpGuide(!showHelpGuide)}
-                className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center justify-center cursor-pointer"
-                title="شرح مبسط لكيفية التحضير"
-              >
-                <HelpCircle className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Collapsible Easy Help Guide */}
-          {showHelpGuide && (
-            <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 text-right space-y-2 text-xs font-bold text-amber-950 animate-in fade-in">
-              <div className="flex items-center justify-between pb-1 border-b border-amber-200">
-                <span className="font-black text-amber-900 flex items-center gap-1.5">
-                  <HelpCircle className="w-4 h-4 text-amber-600" />
-                  <span>دليل التحضير السريع في 3 خطوات بسيطة:</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowHelpGuide(false)}
-                  className="text-amber-700 hover:text-amber-900 cursor-pointer text-xs"
-                >
-                  ✕ إغلاق الدليل
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px]">
-                <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1">
-                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">1</span>
-                  <span className="font-black text-slate-900 block">اختر الفصل والتاريخ</span>
-                  <p className="text-slate-500 font-medium">اختر الفصل الذي تريد تحضيره من القائمة بالأعلى.</p>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1">
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">2</span>
-                  <span className="font-black text-slate-900 block">اضغط "حاضر للكل"</span>
-                  <p className="text-slate-500 font-medium">سيتم تحضير جميع طلاب الفصل بحركة واحدة لتوفير وقتك.</p>
-                </div>
-                <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1">
-                  <span className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black">3</span>
-                  <span className="font-black text-slate-900 block">عدّل الطالب الغائب فقط</span>
-                  <p className="text-slate-500 font-medium">اضغط زر "غائب ✕" أمام اسم الطالب غير الموجود فقط.</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Top Controls Bar */}
+          {/* Streamlined Top Control Panel */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs text-right space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 1: Class & Date Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
-                <label className="text-[11px] font-black text-slate-600 block mb-1">الفصل المحدد</label>
+                <label className="text-xs font-black text-slate-700 block mb-1">الفصل الدراسي</label>
                 <select
                   value={selectedClassId}
                   onChange={(e) => setSelectedClassId(e.target.value)}
@@ -254,14 +179,14 @@ export const AttendanceView: React.FC = () => {
                 >
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.name}
+                      {cls.name} ({students.filter((s) => s.classId === cls.id).length} طالب)
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-[11px] font-black text-slate-600 block mb-1">تاريخ التحضير</label>
+                <label className="text-xs font-black text-slate-700 block mb-1">تاريخ التحضير</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -271,83 +196,106 @@ export const AttendanceView: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick actions & Search */}
-            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-              <div className="relative flex-1 min-w-[140px]">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-3" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="بحث سريع باسم الطالب..."
-                  className="w-full pl-2 pr-8 py-2 bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl outline-none focus:border-indigo-500"
-                />
+            {/* Row 2: Master Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 1-Tap Mark All Present (Primary Action) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(40);
+                    markAllPresent(selectedClassId, selectedDate);
+                    showToast('✓ تم تسجيل جميع طلاب الفصل حاضرين', 'success');
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 cursor-pointer whitespace-nowrap shadow-xs active:scale-95 transition-all"
+                  title="تحضير جميع طلاب الفصل بلمسة واحدة"
+                >
+                  <CheckCheck className="w-4 h-4" />
+                  <span>حاضر للكل (تحضير فوري)</span>
+                </button>
+
+                {/* Card Mode Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(30);
+                    setIsCardModeOpen(true);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/90 px-3.5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap active:scale-95 transition-all"
+                  title="تحضير الطلاب واحداً تلو الآخر عبر بطاقات سهلة"
+                >
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  <span>التحضير كبطاقات 📱</span>
+                </button>
               </div>
 
-              {/* Master Button: Mark All Present */}
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(40);
-                  markAllPresent(selectedClassId, selectedDate);
-                  showToast('✓ تم تسجيل جميع طلاب الفصل حاضرين', 'success');
-                }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-sm active:scale-95 transition-all"
-                title="تحضير جميع طلاب الفصل بلمسة واحدة"
-              >
-                <CheckCheck className="w-4 h-4" />
-                <span>حاضر للكل (تحضير كامل)</span>
-              </button>
+              {/* Utility Tools */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Save Attendance */}
+                <button
+                  type="button"
+                  onClick={forceSaveAll}
+                  className={`px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    saveStatus === 'saving'
+                      ? 'bg-amber-50 text-amber-900 border-amber-300'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-300'
+                  }`}
+                  title="حفظ فوري لبيانات التحضير"
+                >
+                  <Save className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{saveStatus === 'saving' ? 'جاري...' : 'حفظ 💾'}</span>
+                </button>
 
-              {/* Force Save Attendance Button */}
-              <button
-                type="button"
-                onClick={forceSaveAll}
-                className={`px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 border ${
-                  saveStatus === 'saving'
-                    ? 'bg-amber-50 text-amber-900 border-amber-300'
-                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-300'
-                }`}
-                title="حفظ فوري لبيانات التحضير"
-              >
-                <Save className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{saveStatus === 'saving' ? 'جاري الحفظ...' : 'حفظ التحضير 💾'}</span>
-              </button>
+                {/* PDF Export */}
+                <button
+                  type="button"
+                  onClick={handleExportAttendancePDF}
+                  disabled={isExportingPDF}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  title="تصدير كشف التحضير والزي كملف PDF"
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{isExportingPDF ? 'جاري...' : 'كشف PDF'}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={handleExportAttendancePDF}
-                disabled={isExportingPDF}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50 shadow-2xs active:scale-95"
-                title="تصدير كشف التحضير والزي كملف PDF"
-              >
-                <FileText className="w-4 h-4 text-emerald-600" />
-                <span>{isExportingPDF ? 'جاري...' : 'طباعة PDF'}</span>
-              </button>
+                {/* Check Items Config */}
+                <button
+                  type="button"
+                  onClick={() => setShowManageModal(true)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 px-2.5 py-2 rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                  title="إدارة بنود التحضير والزي والمتابعة"
+                >
+                  <ListChecks className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>بنود الزي</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setShowManageModal(true)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 px-2.5 py-2 rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
-                title="إدارة بنود التحضير والزي والمتابعة"
-              >
-                <ListChecks className="w-4 h-4 text-indigo-600" />
-                <span>بنود الزي ({attendanceCheckItems.length})</span>
-              </button>
+                {/* Reset Attendance */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('هل تريد مسح تحضير هذا الفصل لهذا اليوم وإعادة الضبط؟')) {
+                      clearAttendance(selectedClassId, selectedDate);
+                      showToast('تمت إعادة ضبط التحضير', 'info');
+                    }
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-xl text-xs font-bold cursor-pointer"
+                  title="إعادة ضبط التحضير"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('هل تريد مسح تحضير هذا الفصل لهذا اليوم وإعادة الضبط؟')) {
-                    clearAttendance(selectedClassId, selectedDate);
-                    showToast('تمت إعادة ضبط التحضير', 'info');
-                  }
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-xl text-xs font-bold cursor-pointer active:scale-95"
-                title="إعادة ضبط التحضير"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
+            {/* Row 3: Fast Search Input */}
+            <div className="relative pt-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-3.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="بحث سريع باسم الطالب..."
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl outline-none focus:border-indigo-500"
+              />
             </div>
 
             {/* Detailed Stats & Progress Bar */}

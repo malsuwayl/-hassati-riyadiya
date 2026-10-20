@@ -59,7 +59,7 @@ const MainContent: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-28 sm:pb-24 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <Header />
 
-      <main className="max-w-4xl mx-auto px-3 pt-3">
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 pt-3">
         {activeTab === 'home' && <HomeView />}
         {activeTab === 'attendance' && <AttendanceView />}
         {activeTab === 'grades' && <GradesView />}

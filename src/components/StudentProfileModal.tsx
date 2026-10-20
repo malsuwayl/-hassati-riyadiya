@@ -5,7 +5,11 @@ import {
   evaluateMeasurementValue,
   calculateStudentFitnessSummary,
 } from '../utils/measurementUtils';
-import { generateStudentIndividualPDFReport } from '../utils/pdfExport';
+import {
+  generateStudentIndividualPDFReport,
+  generateStudentAttendanceAndUniformPDFReport,
+  getArabicDayName,
+} from '../utils/pdfExport';
 import { cleanImportedString } from '../utils/fileImportExport';
 import {
   X,
@@ -21,6 +25,10 @@ import {
   AlertTriangle,
   Download,
   Edit2,
+  Calendar,
+  Shirt,
+  Clock,
+  Check,
 } from 'lucide-react';
 
 export const StudentProfileModal: React.FC = () => {
@@ -55,6 +63,8 @@ export const StudentProfileModal: React.FC = () => {
   const [customPoints, setCustomPoints] = useState<number>(1);
   const [customType, setCustomType] = useState<'positive' | 'negative'>('positive');
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingAttendancePDF, setIsExportingAttendancePDF] = useState(false);
+  const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'absent' | 'no_uniform' | 'late'>('all');
 
   const student = students.find((s) => s.id === selectedStudentId);
 
@@ -79,13 +89,23 @@ export const StudentProfileModal: React.FC = () => {
 
   const studentClass = classes.find((c) => c.id === student.classId);
 
-  // Attendance
-  const studentLogs = dailyLogs.filter((l) => l.studentId === student.id);
+  // Attendance (sorted newest first)
+  const studentLogs = dailyLogs
+    .filter((l) => l.studentId === student.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
   const totalLogs = studentLogs.length;
   const presentLogs = studentLogs.filter((l) => l.attendance === 'present').length;
   const absentLogs = studentLogs.filter((l) => l.attendance === 'absent').length;
   const lateLogs = studentLogs.filter((l) => l.attendance === 'late').length;
-  const uniformViolations = studentLogs.filter((l) => l.attendance === 'present' && l.uniform === false).length;
+  const uniformViolations = studentLogs.filter((l) => l.uniform === false).length;
+
+  // Filtered attendance logs for list view
+  const displayedAttendanceLogs = studentLogs.filter((log) => {
+    if (attendanceFilter === 'absent') return log.attendance === 'absent';
+    if (attendanceFilter === 'no_uniform') return log.uniform === false;
+    if (attendanceFilter === 'late') return log.attendance === 'late';
+    return true;
+  });
 
   // Grades
   const studentScores = grades[student.id] || {};
@@ -118,7 +138,7 @@ export const StudentProfileModal: React.FC = () => {
   const handleExportStudentPDF = async () => {
     if (!student) return;
     setIsExportingPDF(true);
-    showToast('جاري تصدير التقرير الفردي للطالب بصيغة PDF...', 'info');
+    showToast('جاري تصدير التقرير الفردي الشامل للطالب بصيغة PDF...', 'info');
     try {
       await generateStudentIndividualPDFReport(
         student,
@@ -131,7 +151,7 @@ export const StudentProfileModal: React.FC = () => {
         grades,
         settings
       );
-      showToast('تم تحميل التقرير الفردي للطالب بنجاح 📄', 'success');
+      showToast('تم تحميل التقرير الشامل للطالب بنجاح 📄', 'success');
     } catch (err) {
       showToast('حدث خطأ أثناء تصدير PDF للطالب', 'error');
     } finally {
@@ -139,38 +159,71 @@ export const StudentProfileModal: React.FC = () => {
     }
   };
 
+  const handleExportAttendanceAndUniformPDF = async () => {
+    if (!student) return;
+    setIsExportingAttendancePDF(true);
+    showToast('جاري إعداد وتصدير كشف تواريخ الغياب والزي الرياضي...', 'info');
+    try {
+      await generateStudentAttendanceAndUniformPDFReport(
+        student,
+        studentClass,
+        dailyLogs,
+        settings
+      );
+      showToast('تم تحميل كشف الغياب والزي بالتواريخ بنجاح 🎽', 'success');
+    } catch (err) {
+      showToast('حدث خطأ أثناء تصدير كشف الغياب والزي', 'error');
+    } finally {
+      setIsExportingAttendancePDF(false);
+    }
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 font-sans"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-sans"
       onClick={(e) => {
         if (e.target === e.currentTarget) setSelectedStudentId(null);
       }}
     >
-      <div className="bg-white rounded-2xl border border-zinc-200 max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+      <div className="bg-white rounded-2xl border border-zinc-200 max-w-lg w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-base">
+        <div className="p-3.5 sm:p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-base shrink-0 shadow-2xs">
               {student.name.charAt(0)}
             </div>
-            <div>
-              <h2 className="text-sm font-black text-zinc-900">{student.name}</h2>
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-black text-zinc-900 truncate">{student.name}</h2>
               <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-xs font-bold text-zinc-500">{studentClass?.name || 'فصل مجهول'}</p>
+                <p className="text-[11px] font-bold text-zinc-500 truncate">{studentClass?.name || 'فصل مجهول'}</p>
+                {student.nationalId && (
+                  <span className="text-[10px] font-bold text-zinc-400">({student.nationalId})</span>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleExportAttendanceAndUniformPDF}
+              disabled={isExportingAttendancePDF}
+              className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 px-2.5 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1 transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+              title="طباعة وتصدير كشف تواريخ الغياب ومخالفات الزي بالتفصيل"
+            >
+              <Shirt className="w-3.5 h-3.5 text-purple-700" />
+              <span>{isExportingAttendancePDF ? 'تصدير...' : 'كشف الزي والغياب 🎽'}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleExportStudentPDF}
               disabled={isExportingPDF}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1 transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
               title="تصدير تقرير الطالب الشامل بصيغة PDF"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>{isExportingPDF ? 'جاري التصدير...' : 'تقرير PDF'}</span>
+              <span>{isExportingPDF ? 'تصدير...' : 'التقرير الشامل 📄'}</span>
             </button>
 
             <button
@@ -255,41 +308,249 @@ export const StudentProfileModal: React.FC = () => {
 
         {/* Tab Body Contents */}
         <div className="p-4 overflow-y-auto flex-1 space-y-4 text-right">
-          {/* TAB 1: ATTENDANCE */}
+          {/* TAB 1: ATTENDANCE & UNIFORM LOG */}
           {activeTab === 'attendance' && (
             <div className="space-y-3">
-              <div className="grid grid-cols-4 gap-2 text-center text-xs font-black">
-                <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-emerald-800">
-                  <span className="text-base font-black block">{presentLogs}</span>
-                  <span className="text-[10px]">حاضر</span>
+              {/* Quick Action & Official Print */}
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-purple-50 via-slate-50 to-emerald-50 border border-purple-200/80 p-2.5 rounded-xl">
+                <div className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-purple-700" />
+                  <span>سجل مواظبة وزي الطالب ({totalLogs} حصة مسجلة)</span>
                 </div>
-                <div className="bg-rose-50 border border-rose-200 p-2 rounded-xl text-rose-800">
-                  <span className="text-base font-black block">{absentLogs}</span>
-                  <span className="text-[10px]">غائب</span>
-                </div>
-                <div className="bg-amber-50 border border-amber-200 p-2 rounded-xl text-amber-800">
-                  <span className="text-base font-black block">{lateLogs}</span>
-                  <span className="text-[10px]">متأخر</span>
-                </div>
-                <div className="bg-purple-50 border border-purple-200 p-2 rounded-xl text-purple-800">
-                  <span className="text-base font-black block">{uniformViolations}</span>
-                  <span className="text-[10px]">بدون زي</span>
-                </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportAttendanceAndUniformPDF}
+                  disabled={isExportingAttendancePDF}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                  title="طباعة وتصدير كشف رسمي بتواريخ الغياب ومخالفات الزي"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isExportingAttendancePDF ? 'جاري التحميل...' : 'طباعة كشف الغياب والزي (PDF) 📄'}</span>
+                </button>
               </div>
 
-              <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-200 space-y-1">
-                <span className="text-xs font-black text-zinc-700 block">سجل الحضور اليومي:</span>
-                {studentLogs.length === 0 ? (
-                  <p className="text-xs text-zinc-400 font-bold">لا توجد سجلات حضور حتى الآن</p>
+              {/* KPI Cards Row - Clickable to filter */}
+              <div className="grid grid-cols-4 gap-2 text-center text-xs font-black">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('all')}
+                  className={`border p-2 rounded-xl transition-all cursor-pointer ${
+                    attendanceFilter === 'all'
+                      ? 'bg-emerald-100 border-emerald-400 text-emerald-950 shadow-xs'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/60'
+                  }`}
+                >
+                  <span className="text-base font-black block">{presentLogs}</span>
+                  <span className="text-[10px]">حاضر</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('absent')}
+                  className={`border p-2 rounded-xl transition-all cursor-pointer ${
+                    attendanceFilter === 'absent'
+                      ? 'bg-rose-100 border-rose-400 text-rose-950 shadow-xs'
+                      : 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100/60'
+                  }`}
+                >
+                  <span className="text-base font-black block">{absentLogs}</span>
+                  <span className="text-[10px]">غائب</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('no_uniform')}
+                  className={`border p-2 rounded-xl transition-all cursor-pointer ${
+                    attendanceFilter === 'no_uniform'
+                      ? 'bg-purple-100 border-purple-400 text-purple-950 shadow-xs'
+                      : 'bg-purple-50 border-purple-200 text-purple-800 hover:bg-purple-100/60'
+                  }`}
+                >
+                  <span className="text-base font-black block">{uniformViolations}</span>
+                  <span className="text-[10px]">بدون زي 🎽</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('late')}
+                  className={`border p-2 rounded-xl transition-all cursor-pointer ${
+                    attendanceFilter === 'late'
+                      ? 'bg-amber-100 border-amber-400 text-amber-950 shadow-xs'
+                      : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100/60'
+                  }`}
+                >
+                  <span className="text-base font-black block">{lateLogs}</span>
+                  <span className="text-[10px]">متأخر</span>
+                </button>
+              </div>
+
+              {/* Sub-Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-black">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('all')}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    attendanceFilter === 'all'
+                      ? 'bg-zinc-800 text-white'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  }`}
+                >
+                  الكل ({totalLogs})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('absent')}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                    attendanceFilter === 'absent'
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                  }`}
+                >
+                  <span>🔴 تواريخ الغياب ({absentLogs})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('no_uniform')}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                    attendanceFilter === 'no_uniform'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'
+                  }`}
+                >
+                  <Shirt className="w-3 h-3" />
+                  <span>تواريخ بدون زي ({uniformViolations})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceFilter('late')}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    attendanceFilter === 'late'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  ⏰ التأخر ({lateLogs})
+                </button>
+              </div>
+
+              {/* Detailed Dates List */}
+              <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 space-y-2">
+                <div className="flex items-center justify-between text-xs font-black text-zinc-700 px-1">
+                  <span>
+                    {attendanceFilter === 'absent'
+                      ? '🔴 قائمة تواريخ أيام الغياب:'
+                      : attendanceFilter === 'no_uniform'
+                      ? '🎽 قائمة تواريخ عدم إحضار الزي الرياضي:'
+                      : attendanceFilter === 'late'
+                      ? '⏰ قائمة تواريخ التأخر:'
+                      : 'سجل الحصص اليومي بالتاريخ واليوم:'}
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-bold">
+                    ({displayedAttendanceLogs.length} حصة)
+                  </span>
+                </div>
+
+                {displayedAttendanceLogs.length === 0 ? (
+                  <div className="p-6 text-center rounded-xl bg-white border border-zinc-100 space-y-1">
+                    <p className="text-xs font-black text-emerald-700">
+                      {attendanceFilter === 'absent'
+                        ? '✨ الطالب لم يسجل أي يوم غياب ولله الحمد!'
+                        : attendanceFilter === 'no_uniform'
+                        ? '✨ الطالب ملتزم دائماً بإحضار الزي الرياضي الكامل!'
+                        : attendanceFilter === 'late'
+                        ? '✨ الطالب منضبط ولا يوجد أي تأخر مسجل!'
+                        : 'لا توجد سجلات حضور مسجلة لهذا الطالب حتى الآن'}
+                    </p>
+                    <p className="text-[10px] text-zinc-400 font-bold">
+                      يمكنك تحضير الطالب ورصد الزي من صفحة التحضير اليومي
+                    </p>
+                  </div>
                 ) : (
-                  studentLogs.map((l, i) => (
-                    <div key={i} className="flex justify-between text-xs font-bold py-1 border-b border-zinc-200/60">
-                      <span>تاريخ {l.date}</span>
-                      <span className={l.attendance === 'present' ? 'text-emerald-700' : 'text-rose-700'}>
-                        {l.attendance === 'present' ? 'حاضر' : l.attendance === 'absent' ? 'غائب' : 'متأخر'}
-                      </span>
-                    </div>
-                  ))
+                  <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-0.5">
+                    {displayedAttendanceLogs.map((log, i) => {
+                      const dayName = getArabicDayName(log.date);
+                      const isAbsent = log.attendance === 'absent';
+                      const isLate = log.attendance === 'late';
+                      const isExcused = log.attendance === 'excused';
+                      const isNoUniform = log.uniform === false;
+
+                      return (
+                        <div
+                          key={i}
+                          className={`p-2.5 rounded-xl border transition-colors flex flex-col gap-1.5 ${
+                            isAbsent
+                              ? 'bg-rose-50/70 border-rose-200'
+                              : isNoUniform
+                              ? 'bg-purple-50/70 border-purple-200'
+                              : isLate
+                              ? 'bg-amber-50/70 border-amber-200'
+                              : 'bg-white border-zinc-200/80 hover:bg-zinc-50/80'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-xs font-black">
+                            {/* Date & Day */}
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                              <span className="text-zinc-900 font-black">
+                                {dayName ? <strong className="text-emerald-700">{dayName}</strong> : ''} {log.date}
+                              </span>
+                            </div>
+
+                            {/* Attendance Status Badge */}
+                            <div className="flex items-center gap-1.5">
+                              {isAbsent ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-600 text-white">
+                                  غائب ✕
+                                </span>
+                              ) : isLate ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-500 text-white">
+                                  متأخر ⏰
+                                </span>
+                              ) : isExcused ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-sky-600 text-white">
+                                  معذور 📄
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-600 text-white">
+                                  حاضر ✓
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Uniform & Notes Row */}
+                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] font-bold pt-0.5 border-t border-zinc-100">
+                            {/* Uniform Badge */}
+                            <div className="flex items-center gap-1">
+                              {isAbsent ? (
+                                <span className="text-zinc-400 text-[10px]">غائب (لم يحضر)</span>
+                              ) : isNoUniform ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300 flex items-center gap-1">
+                                  <Shirt className="w-3 h-3 text-purple-700" />
+                                  <span>لم يحضر الزي الرياضي ❌</span>
+                                </span>
+                              ) : log.uniform === true ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span>ملتزم بالزي الرياضي ✅</span>
+                                </span>
+                              ) : (
+                                <span className="text-zinc-400 text-[10px]">الزي: غير محدد</span>
+                              )}
+                            </div>
+
+                            {/* Notes */}
+                            {log.notes && (
+                              <span className="text-[10px] font-bold text-zinc-600 bg-white/80 px-2 py-0.5 rounded border border-zinc-200">
+                                💬 {log.notes}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>

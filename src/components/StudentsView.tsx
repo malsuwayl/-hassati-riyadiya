@@ -430,8 +430,16 @@ export const StudentsView: React.FC = () => {
                     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
+                        onClick={() => setSelectedStudentId(st.id)}
+                        className="p-1.5 text-zinc-400 hover:text-indigo-700 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+                        title="عرض ملف الطالب وتقارير الغياب والزي (PDF)"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleOpenEditModal(st)}
-                        className="p-1.5 text-zinc-400 hover:text-emerald-700 rounded-lg hover:bg-zinc-100 transition-colors"
+                        className="p-1.5 text-zinc-400 hover:text-emerald-700 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
                         title="تعديل"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
